@@ -3,6 +3,7 @@ import os
 import json
 from parse import validate_file
 
+# Usage: python3 prepare_submission.py outputs/ submission.json
 if __name__ == '__main__':
     outputs_dir = sys.argv[1]
     submission_name = sys.argv[2]

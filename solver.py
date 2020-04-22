@@ -2,6 +2,7 @@ import networkx as nx
 from parse import read_input_file, write_output_file
 from utils import is_valid_network, average_pairwise_distance
 from userutil import *
+import time
 import sys, os
 
 
@@ -15,7 +16,8 @@ def solve(G):
     """
 
     # TODO: your code here!
-    pass
+    # return mst_with_pruning(G)
+    return get_MST(G)
 
 
 
@@ -33,7 +35,10 @@ def solve(G):
 #     print("Average  pairwise distance: {}".format(average_pairwise_distance(T)))
 #     write_output_file(T, 'out/test.out')
 
+# Usage: python3 solver.py /inputs
 if __name__ == '__main__':
+    
+    t0 = time.time()
     assert len(sys.argv) == 2
     input_path = sys.argv[1]
     current_folder = sys.path[0]
@@ -44,4 +49,6 @@ if __name__ == '__main__':
         T = solve(G)
         assert is_valid_network(G, T)
         # print("Average  pairwise distance: {}".format(average_pairwise_distance(T)))
-        write_output_file(T, 'outputs/{}'.format(input[0:len(input) - 2] + 'out'))
+        write_output_file(T, 'mst_outputs/{}'.format(input[0:len(input) - 2] + 'out'))
+    t1 = time.time()
+    print("Elapsed time: {}".format(t1 - t0))

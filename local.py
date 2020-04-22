@@ -10,7 +10,9 @@ import sys, os, random
 ### Run local testing ###
 
 # Example: looks at the MST for the 30'th inputs. #
+# batch = get_sml_input(random.randint(0, 100))
 batch = get_sml_input(30)
+
 
 graphs = []
 for input in batch:
@@ -20,4 +22,7 @@ for input in batch:
 for graph in graphs:
     # This line will usually be: tree = algorithm(graph)
     tree = get_MST(graph)
-    print("Average pairwise distance: {}".format(average_pairwise_distance(tree)))
+    print("Average pairwise distance in MST: {}".format(average_pairwise_distance(tree)))
+    our_tree = mst_with_pruning(graph)
+    print("Average pairwise distance in MST with pruning: {}".format(average_pairwise_distance(our_tree)))
+    print(is_valid_network(graph, our_tree))
