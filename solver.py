@@ -18,12 +18,13 @@ def solve(graph, steps):
     # TODO: your code here!
     # return mst_with_pruning(G)
     mst = get_mst(graph)
-    print("Initial MST cost: {}".format(average_pairwise_distance(mst)))
+    initial_cost = average_pairwise_distance(mst)
     solver = PairwiseDistanceTreeMSTPrune(mst, graph)
     solver.steps = steps
     tree, energy = solver.anneal()
-    print("Solved cost: {}, improvement ratio: {}".format(average_pairwise_distance(tree),
-    1 - (average_pairwise_distance(tree) - average_pairwise_distance(mst))))
+    solved_cost = average_pairwise_distance(tree)
+    ratio = 1 - (solved_cost - initial_cost)
+    print("Solved cost: {}. Improvement ratio: {}".format(solved_cost, ratio))
     return tree
 
 
