@@ -6,7 +6,7 @@ import time
 import sys, os
 
 
-def solve(G):
+def solve(graph, steps):
     """
     Args:
         G: networkx.Graph
@@ -17,7 +17,12 @@ def solve(G):
 
     # TODO: your code here!
     # return mst_with_pruning(G)
-    return get_MST(G)
+    mst = get_mst(graph)
+    solver = PairwiseDistanceTreeMSTPrune(mst, graph)
+    solver.steps = steps
+    tree, energy = solver.anneal()
+    print("Solved cost: {}".format(average_pairwise_distance(tree)))
+    return tree
 
 
 
@@ -35,9 +40,16 @@ def solve(G):
 #     print("Average  pairwise distance: {}".format(average_pairwise_distance(T)))
 #     write_output_file(T, 'out/test.out')
 
+steps_dict = {
+
+    'large': 100,
+    'medium' : 500,
+    'small' : 1000
+}
+
 # Usage: python3 solver.py /inputs
 if __name__ == '__main__':
-    
+
     t0 = time.time()
     assert len(sys.argv) == 2
     input_path = sys.argv[1]
@@ -46,7 +58,19 @@ if __name__ == '__main__':
     inputs_path = current_folder + input_path
     for input in os.listdir(inputs_path):
         G = read_input_file(inputs_path + '/' + input)
-        T = solve(G)
+        if 'large' in input:
+            steps = steps_dict['large']
+            print("Solving large input, with stepsize: {}".format(steps))
+
+        if 'medium' in input:
+            steps = steps_dict['medium']
+            print("Solving medium input, with stepsize: {}".format(steps))
+
+        if 'small' in input:
+            steps = steps_dict['small']
+            print("Solving small input, with stepsize: {}".format(steps))
+
+        T = solve(G, steps)
         assert is_valid_network(G, T)
         # print("Average  pairwise distance: {}".format(average_pairwise_distance(T)))
         write_output_file(T, 'mst_outputs/{}'.format(input[0:len(input) - 2] + 'out'))

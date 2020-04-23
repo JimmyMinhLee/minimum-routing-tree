@@ -81,7 +81,6 @@ class PairwiseDistanceTreeMST(Annealer):
         # self.cost_scalar = 1 / initial_c
         self.cost_scalar = 1
 
-
         super(PairwiseDistanceTreeMST, self).__init__(state)  # important!
 
     def move(self):
@@ -117,6 +116,53 @@ class PairwiseDistanceTreeMST(Annealer):
     def energy(self):
         return self.cost_scalar * average_pairwise_distance(self.state)
 
+class PairwiseDistanceTreeMSTPrune(Annealer):
+    def __init__(self, state, graph):
+        self.state = prune(state)
+        print("Initial cost: {}".format(average_pairwise_distance(state)))
+        self.graph = graph
+        self.iter = 0
+
+        initial_c = average_pairwise_distance(self.state)
+        # self.cost_scalar = 1 / initial_c
+        self.cost_scalar = 1
+
+        super(PairwiseDistanceTreeMSTPrune, self).__init__(state)  # important!
+
+    def move(self):
+        # IF ERROR WITH EDGE, MAKE SURE YOU INDEX TO 1!
+        # Perform algorithm:
+            # 1. Disconnect and use a different edge in the graph.
+            # 2. If this disconnects the components, reconnect them.
+
+        # 1
+        disconnecting_edge = choose_random_edge(self.state.edges())
+        # print("Disconnecting edge: {}".format(disconnecting_edge))
+        # Endpoints of edge we'll disconnect:
+        u, v = disconnecting_edge[0], disconnecting_edge[1]
+        self.state.remove_edge(u, v)
+
+        # 2
+        # O(V + E); they run DFS on each vertex.
+        u_cc = nx.node_connected_component(self.state, u)
+        v_cc = nx.node_connected_component(self.state, v)
+        # print("Connected components: {}, {}".format(u_cc, v_cc))
+
+        # O(E^2); have to potentially check every node in each connected component
+        connecting_edges = find_connecting_edges(self.graph, u_cc, v_cc)
+        # print(connecting_edges)
+
+        # Pick a random connecting edge and add it to the tree.
+        random_connecting_edge = choose_random_edge(connecting_edges)
+        rce_edge_weight = get_edge_weight(self.graph, u, v)
+        u, v = random_connecting_edge[0], random_connecting_edge[1]
+        # print(random_connecting_edge)
+        self.state.add_edge(u, v, weight=rce_edge_weight)
+
+    def energy(self):
+        return self.cost_scalar * average_pairwise_distance(self.state)
+
+
 # Annealer that uses the dominating set at first.
 class PairwiseDistanceDom(Annealer):
     def __init__(self, state, graph):
@@ -136,7 +182,6 @@ class PairwiseDistanceDom(Annealer):
         # 2. Remove a random vertex.
 
         # 1
-
         random_edge = choose_random_edge(self.graph.edges())
         u, v = random_edge[0], random_edge[1]
         re_weight = get_edge_weight(self.graph, u, v)
@@ -165,8 +210,6 @@ class PairwiseDistanceDom(Annealer):
         u, v = random_connecting_edge[0], random_connecting_edge[1]
         # print(random_connecting_edge)
         self.state.add_edge(u, v, weight=rce_edge_weight)
-        return -1 * (initial_energy - self.energy())
-
 
     def energy(self):
         return average_pairwise_distance(self.state)
@@ -269,3 +312,31 @@ def get_rand_large():
     input_folder_path = sys.path[0] + '/inputs'
     num = random.randint(1, 100)
     return input_folder_path + '/large-' + str(num) + '.in'
+
+# Get all the leaves in our graph.
+def find_leaves(G):
+    leaves = []
+    for node in G.nodes():
+        if len(G.edges(node)) == 1:
+            leaves.append(node)
+    return leaves
+
+# Prune the leaves of our tree according to some cost function.
+def prune(tree):
+    leaves = find_leaves(tree)
+    original_cost = average_pairwise_distance(tree)
+    for node in leaves:
+        edges = list(get_edges(tree, node))
+        if len(edges) == 1:
+            edge = edges[0]
+            copy_tree = deepcopy(tree)
+            u, v = edge[0], edge[1]
+            copy_tree.remove_node(node)
+            new_cost = average_pairwise_distance(copy_tree)
+            if new_cost < original_cost:
+                tree.remove_node(node)
+                original_cost = new_cost
+        else:
+            pass
+
+    return tree

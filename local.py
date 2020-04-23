@@ -28,8 +28,8 @@ import sys, os, random
 #     print("Average pairwise distance in MST with pruning: {}".format(average_pairwise_distance(our_tree)))
 #     print(is_valid_network(graph, our_tree))
 
-rand_input = [get_rand_medium() for i in range(3)]
-print(rand_input)
+rand_input = [get_rand_medium() for i in range(1)]
+# print(rand_input)
 for input in rand_input:
     graph = read_input_file(input)
 
@@ -37,7 +37,7 @@ for input in rand_input:
     initial_cost = average_pairwise_distance(tree)
     print("Average pairwise distance in MST: {}".format(initial_cost))
 
-    solver = PairwiseDistanceTreeMST(tree, graph)
+    solver = PairwiseDistanceTreeMSTPrune(tree, graph)
 
     # Original settings for annealer
     # Tmax = 25000.0  # Max (starting) temperature
@@ -47,7 +47,7 @@ for input in rand_input:
 
     solver.Tmax = 25000.0
     solver.Tmin = 2.5
-    solver.steps = 7500
+    solver.steps = 5000
     solver.updates = 100
 
     tree, energy = solver.anneal()

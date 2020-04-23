@@ -52,11 +52,16 @@ def test_find_edge():
 
     g.add_edge(10, 1, weight="10")
     print(find_edge(g, 10, mst))
-    
+
+def test_prune():
+    mst = get_mst(create_G())
+    prune(mst)
+
 # create_G()
 # test_get_rand_node()
 # test_get_edges()
 # test_choose_random_edge()
 # test_get_edge_weight()
-test_move_MST()
+# test_move_MST()
 # test_find_edge()
+test_prune()
