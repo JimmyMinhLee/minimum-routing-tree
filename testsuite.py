@@ -1,14 +1,4 @@
 from userutil import *
-import copy
-
-
-# Test graph #
-
-"""
-4 - 1 - 2 - 6
-  \ -
-    3 - 5
-"""
 def create_G():
     G = nx.Graph()
     G.add_edge(1, 2, weight = 5)
@@ -20,79 +10,81 @@ def create_G():
     G.to_undirected()
     return G
 
-def test_most_connected():
-    node = get_most_connected_vertex(G)
-    print("Expected: 1, Actual: {}".format(node))
-
-def test_best_neighbor():
-    node = get_most_connected_neighbor(G, 1)
-    print("Expected: 3, Actual: {}".format(node))
-
-def test_get_edge_data():
-    edge_data = G.get_edge_data(1, 2)
-    print(edge_data)
-
-def test_vertex_domset():
-    T = nx.Graph()
+def test_get_rand_node():
     G = create_G()
-    mst_g = get_MST(G)
-    print("MST edges: {}".format(mst_g.edges()))
-    print("MST cost: {}".format(average_pairwise_distance(mst_g)))
-    T = domset_approx(G, T)
-    print("T edges: {}".format(T.edges()))
-    print("T cost: {}".format(average_pairwise_distance(T)))
+    node = get_random_node(G)
+    print(node)
 
-def test_edge_domset():
-    T = nx.Graph()
+def test_get_edges():
     G = create_G()
-    mst_g = get_MST(G)
-    print("MST edges: {}".format(mst_g.edges()))
-    print("MST cost: {}".format(average_pairwise_distance(mst_g)))
-    T = edge_domset_approx(G, T)
+    node = get_random_node(G)
+    edges = get_edges(G, node)
+    print(edges)
 
-def test_remove_node():
-    T = nx.Graph()
-    best_vertex = get_most_connected_vertex(G)
-    T.add_node(best_vertex)
-    best_neighbor = get_most_connected_neighbor(G, best_vertex)
-    edge = G.get_edge_data(best_vertex, best_neighbor)
-    edge_weight = edge['weight']
-    T.add_edge(best_vertex, best_neighbor, weight=edge_weight)
-    G.remove_node(best_vertex)
-
-def test_cost():
+def test_choose_random_edge():
     G = create_G()
-    mst_g = get_MST(G)
-    G.add_edge(1, 9, weight = 0.25)
-    print(cost(G, mst_g, 1, 9))
+    node = get_random_node(G)
+    edges = get_edges(G, node)
+    random_edge = choose_random_edge(edges)
+    print(random_edge)
 
-def test_find_leaves():
+def test_get_edge_weight():
     G = create_G()
-    leaves = find_leaves(G)
-    print(leaves)
+    node = get_random_node(G)
+    edges = get_edges(G, node)
+    random_edge = choose_random_edge(edges)
+    edge_weight = get_edge_weight(G, node, random_edge[1])
+    print(edge_weight)
 
-def test_prune():
+def test_move_MST():
     G = create_G()
-    T = get_MST(G)
-    print("Initial cost of MST: {}".format(average_pairwise_distance(T)))
-    prune(T)
-    print("Remaining cost of MST: {}".format(average_pairwise_distance(T)))
+    mst = get_mst(G)
 
-def test_our_domset():
-    G = create_G()
-    our_min_domset(G)
-    print(min_weighted_dominating_set(G))
+    print("All nodes: {}".format(mst.nodes()))
+
+    random_node = get_random_node(G)
+    edges = get_edges(G, random_node)
+    print("Edges to node: {}; {}".format(random_node, edges))
+    # Must always index to [1] to find the other edge.
+    # Perform algorithm
+    random_node = get_random_node(G)
+    print("Random node: {}".format(random_node))
+    edges = get_edges(G, random_node)
+
+    # if this random node is a leaf to the tree, route it somewhere else.
+    if len(edges) == 1:
+        pass
+
+    # otherwise, reroute while preserving validity.
+    random_edge = choose_random_edge(edges)
+    connecting_vertex = random_edge[1]
+
+    con_v_cc = nx.node_connected_component(G, connecting_vertex)
+    connecting_edges = find_edge(G, random_node, con_v_cc)
+
+    new_edge = choose_random_edge(connecting_edges)
+    new_edge_weight = get_edge_weight(G, random_node, new_edge[1])
+    new_connecting_vertex = new_edge[1]
+
+    mst.remove_edge(connecting_vertex, random_node)
+    mst.add_edge(random_node, new_connecting_vertex, weight = new_edge_weight)
 
 
+    print("New edges to node: {}; {}".format(random_node, edges))
 
-# test_most_connected()
-# test_best_neighbor()
-# test_get_edge_data()
-# test_vertex_domset()
-# test_remove_node()
-# test_vertex_domset()
-# test_edge_domset()
-# test_cost()
-# test_find_leaves()
-# test_prune()
-test_our_domset()
+    print("All nodes: {}".format(mst.nodes()))
+    print("Is new graph connected: {}".format(nx.is_connected(mst)))
+
+def test_find_edge():
+    g = create_G()
+    mst = get_mst(g)
+
+    g.add_edge(10, 1, weight="10")
+    print(find_edge(g, 10, mst))
+# create_G()
+# test_get_rand_node()
+# test_get_edges()
+# test_choose_random_edge()
+# test_get_edge_weight()
+test_move_MST()
+# test_find_edge()
