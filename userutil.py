@@ -62,30 +62,94 @@ Considerations:
         4. Maybe prune again?
 """
 
+def get_cost_scalar(cost):
+    if cost > 50:
+        return 1
+    if cost > 20:
+        return 3
+    else:
+        return 5
+
 # Annealer that uses MST at first.
 class PairwiseDistanceTreeMST(Annealer):
     def __init__(self, state, graph):
         self.state = state
         self.graph = graph
         self.iter = 0
+
+        initial_c = average_pairwise_distance(self.state)
+        # self.cost_scalar = 1 / initial_c
+        self.cost_scalar = 1
+
+
         super(PairwiseDistanceTreeMST, self).__init__(state)  # important!
 
     def move(self):
         # IF ERROR WITH EDGE, MAKE SURE YOU INDEX TO 1!
-        # Used later
-        initial_energy = self.energy()
-
         # Perform algorithm:
             # 1. Disconnect and use a different edge in the graph.
             # 2. If this disconnects the components, reconnect them.
 
-        # 1.
+        # 1
         disconnecting_edge = choose_random_edge(self.state.edges())
         # print("Disconnecting edge: {}".format(disconnecting_edge))
         # Endpoints of edge we'll disconnect:
         u, v = disconnecting_edge[0], disconnecting_edge[1]
         self.state.remove_edge(u, v)
 
+        # 2
+        # O(V + E); they run DFS on each vertex.
+        u_cc = nx.node_connected_component(self.state, u)
+        v_cc = nx.node_connected_component(self.state, v)
+        # print("Connected components: {}, {}".format(u_cc, v_cc))
+
+        # O(E^2); have to potentially check every node in each connected component
+        connecting_edges = find_connecting_edges(self.graph, u_cc, v_cc)
+        # print(connecting_edges)
+
+        # Pick a random connecting edge and add it to the tree.
+        random_connecting_edge = choose_random_edge(connecting_edges)
+        rce_edge_weight = get_edge_weight(self.graph, u, v)
+        u, v = random_connecting_edge[0], random_connecting_edge[1]
+        # print(random_connecting_edge)
+        self.state.add_edge(u, v, weight=rce_edge_weight)
+
+    def energy(self):
+        return self.cost_scalar * average_pairwise_distance(self.state)
+
+# Annealer that uses the dominating set at first.
+class PairwiseDistanceDom(Annealer):
+    def __init__(self, state, graph):
+        self.state = state
+        self.graph = graph
+        self.iter = 0
+        super(PairwiseDistanceDom, self).__init__(state)  # important!
+
+    def move(self):
+        # IF ERROR WITH EDGE, MAKE SURE YOU INDEX TO 1!
+        # Used later
+        initial_energy = self.energy()
+
+
+        # Perform algorithm:
+        # 1. Add a random vertex.
+        # 2. Remove a random vertex.
+
+        # 1
+
+        random_edge = choose_random_edge(self.graph.edges())
+        u, v = random_edge[0], random_edge[1]
+        re_weight = get_edge_weight(self.graph, u, v)
+        self.state.add_edge(u, v, weight = re_weight)
+
+        # 2
+        disconnecting_edge = choose_random_edge(self.state.edges())
+        # print("Disconnecting edge: {}".format(disconnecting_edge))
+        # Endpoints of edge we'll disconnect:
+        u, v = disconnecting_edge[0], disconnecting_edge[1]
+        self.state.remove_edge(u, v)
+
+        # 2
         # O(V + E); they run DFS on each vertex.
         u_cc = nx.node_connected_component(self.state, u)
         v_cc = nx.node_connected_component(self.state, v)
@@ -103,18 +167,6 @@ class PairwiseDistanceTreeMST(Annealer):
         self.state.add_edge(u, v, weight=rce_edge_weight)
         return -1 * (initial_energy - self.energy())
 
-
-    def energy(self):
-        return average_pairwise_distance(self.state)
-
-# Annealer that uses one node at first.
-class PairwiseDistanceTreeNode(Annealer):
-    def __init__(self, state, G):
-        pass
-
-    def move(self):
-        initial_energy = self.energy()
-        return self.energy() - initial_energy
 
     def energy(self):
         return average_pairwise_distance(self.state)
@@ -202,22 +254,18 @@ def get_sml_input(n):
 def get_rand_small():
     input_folder_path = sys.path[0] + '/inputs'
     num = random.randint(1, 100)
-    return [
-    input_folder_path + '/small-' + str(num) + '.in',
-]
+    return input_folder_path + '/small-' + str(num) + '.in'
+
 
 # Get a random medium input.
 def get_rand_medium():
     input_folder_path = sys.path[0] + '/inputs'
     num = random.randint(1, 100)
-    return [
-    input_folder_path + '/medium-' + str(num) + '.in',
-]
+    return input_folder_path + '/medium-' + str(num) + '.in'
+
 
 # Get a random large input.
 def get_rand_large():
     input_folder_path = sys.path[0] + '/inputs'
     num = random.randint(1, 100)
-    return [
-    input_folder_path + '/large-' + str(num) + '.in'
-]
+    return input_folder_path + '/large-' + str(num) + '.in'

@@ -1,0 +1,23 @@
+MST Annealing:
+Benefit: Intitial MST Cost, Improvement Ratio
+
+### ON SMALL INPUTS ###
+  ### RUNTIME ###
+
+  10000 iterations: ~25 seconds
+    Benefit:
+      (1.6, 0)
+      (204, .5)
+      (61, .35)
+  15000 iterations:
+    (8.6, 0)
+    (54, .58)
+    (13, .06)
+
+### ON MEDIUM INPUTS ###
+  ### RUNTIME ###
+  7500 iterations: ~30 seconds
+    Benefit:
+
+  5000 iterations: ~30 seconds
+    Benefit:
