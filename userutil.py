@@ -136,10 +136,14 @@ class PairwiseDistanceTreeMSTPrune(Annealer):
             # 1. Disconnect and use a different edge in the graph.
             # 2. If this disconnects the components, reconnect them.
 
+        if self.state.nodes() == 1 and is_valid_network(self.state, graph):
+            return 0
+
         # 1
         disconnecting_edge = choose_random_edge(self.state.edges())
-        # print("Disconnecting edge: {}".format(disconnecting_edge))
         # Endpoints of edge we'll disconnect:
+        if disconnecting_edge == None:
+            return
         u, v = disconnecting_edge[0], disconnecting_edge[1]
         self.state.remove_edge(u, v)
 
@@ -153,12 +157,16 @@ class PairwiseDistanceTreeMSTPrune(Annealer):
         connecting_edges = find_connecting_edges(self.graph, u_cc, v_cc)
         # print(connecting_edges)
 
-        # Pick a random connecting edge and add it to the tree.
-        random_connecting_edge = choose_random_edge(connecting_edges)
-        rce_edge_weight = get_edge_weight(self.graph, u, v)
-        u, v = random_connecting_edge[0], random_connecting_edge[1]
-        # print(random_connecting_edge)
-        self.state.add_edge(u, v, weight=rce_edge_weight)
+        if len(connecting_edges) == 0:
+            self.state.add_edge(u, v, get_edge_weight(self.state, u, v))
+            return
+        else:
+            # Pick a random connecting edge and add it to the tree.
+            random_connecting_edge = choose_random_edge(connecting_edges)
+            rce_edge_weight = get_edge_weight(self.graph, u, v)
+            u, v = random_connecting_edge[0], random_connecting_edge[1]
+            # print(random_connecting_edge)
+            self.state.add_edge(u, v, weight=rce_edge_weight)
 
     def energy(self):
         return self.cost_scalar * average_pairwise_distance(self.state)
@@ -176,7 +184,8 @@ class PairwiseDistanceDom(Annealer):
         # IF ERROR WITH EDGE, MAKE SURE YOU INDEX TO 1!
         # Used later
         initial_energy = self.energy()
-
+        if len(self.state.nodes() == 1) and is_valid_network(self.state, graph):
+            return 0
 
         # Perform algorithm:
         # 1. Add a random vertex.
@@ -191,6 +200,8 @@ class PairwiseDistanceDom(Annealer):
         # 2
         disconnecting_edge = choose_random_edge(self.state.edges())
         # print("Disconnecting edge: {}".format(disconnecting_edge))
+        if disconnecting_edge == None:
+            return
         # Endpoints of edge we'll disconnect:
         u, v = disconnecting_edge[0], disconnecting_edge[1]
         self.state.remove_edge(u, v)
@@ -221,6 +232,9 @@ class PairwiseDistanceDom(Annealer):
 def choose_random_edge(edge_list):
     edge_list = list(edge_list)
     possible_choices = len(edge_list) - 1
+    # print(possible_choices)
+    if possible_choices < 0 or edge_list == []:
+        return None
     return edge_list[rand.randint(0, possible_choices)]
 
 # Gets a random node from the graph.
@@ -294,6 +308,22 @@ def get_sml_input(n):
     input_folder_path + '/large-' + str(n) + '.in'
 ]
 
+def get_sinput(n):
+    input_folder_path = sys.path[0] + '/inputs'
+    num = n
+    return input_folder_path + '/small-' + str(num) + '.in'
+
+def get_minput(n):
+    input_folder_path = sys.path[0] + '/inputs'
+    num = n
+    return input_folder_path + '/medium-' + str(num) + '.in'
+
+def get_linput(n):
+    input_folder_path = sys.path[0] + '/inputs'
+    num = n
+    return input_folder_path + '/large-' + str(num) + '.in'
+
+
 # Get a random small input file.
 def get_rand_small():
     input_folder_path = sys.path[0] + '/inputs'
@@ -325,9 +355,13 @@ def find_leaves(G):
 # Prune the leaves of our tree according to some cost function.
 def prune(tree):
     leaves = find_leaves(tree)
+    if len(leaves) == 1:
+        return tree
     original_cost = average_pairwise_distance(tree)
     for node in leaves:
         edges = list(get_edges(tree, node))
+        if len(tree.nodes()) == 1:
+            return tree
         if len(edges) == 1:
             edge = edges[0]
             copy_tree = deepcopy(tree)

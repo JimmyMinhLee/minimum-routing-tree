@@ -19,12 +19,13 @@ def solve(graph, steps):
     # return mst_with_pruning(G)
     mst = get_mst(graph)
     initial_cost = average_pairwise_distance(mst)
+    print("### Initial_cost: {} ###".format(initial_cost))
     solver = PairwiseDistanceTreeMSTPrune(mst, graph)
     solver.steps = steps
     tree, energy = solver.anneal()
     solved_cost = average_pairwise_distance(tree)
-    ratio = 1 - (solved_cost - initial_cost)
-    print("Solved cost: {}. Improvement ratio: {}".format(solved_cost, ratio))
+    ratio = 1 - (solved_cost / initial_cost)
+    print("### Solved cost: {}. Improvement ratio: {} ###".format(solved_cost, ratio))
     return tree
 
 
@@ -45,9 +46,9 @@ def solve(graph, steps):
 
 steps_dict = {
 
-    'large': 1000,
-    'medium' : 2000,
-    'small' : 4000
+    'large': 5000,
+    'medium' : 10000,
+    'small' : 20000
 }
 
 # Usage: python3 solver.py /inputs
@@ -63,15 +64,15 @@ if __name__ == '__main__':
         G = read_input_file(inputs_path + '/' + input)
         if 'large' in input:
             steps = steps_dict['large']
-            print("Solving large input, with stepsize: {}".format(steps))
+            print("Solving {}, with stepsize: {}".format(input, steps))
 
         if 'medium' in input:
             steps = steps_dict['medium']
-            print("Solving medium input, with stepsize: {}".format(steps))
+            print("Solving {}, with stepsize: {}".format(input, steps))
 
         if 'small' in input:
             steps = steps_dict['small']
-            print("Solving small input, with stepsize: {}".format(steps))
+            print("Solving {}, with stepsize: {}".format(input, steps))
 
         T = solve(G, steps)
         assert is_valid_network(G, T)
