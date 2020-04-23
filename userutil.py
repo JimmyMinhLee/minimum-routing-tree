@@ -118,8 +118,9 @@ class PairwiseDistanceTreeMST(Annealer):
 
 class PairwiseDistanceTreeMSTPrune(Annealer):
     def __init__(self, state, graph):
-        self.state = prune(state)
         print("Initial cost: {}".format(average_pairwise_distance(state)))
+        self.state = prune(state)
+        print("Pruned cost: {}".format(average_pairwise_distance(self.state)))
         self.graph = graph
         self.iter = 0
 

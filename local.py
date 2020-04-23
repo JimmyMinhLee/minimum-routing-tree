@@ -35,7 +35,7 @@ for input in rand_input:
 
     tree = get_mst(graph)
     initial_cost = average_pairwise_distance(tree)
-    print("Average pairwise distance in MST: {}".format(initial_cost))
+    # print("Average pairwise distance in MST: {}".format(initial_cost))
 
     solver = PairwiseDistanceTreeMSTPrune(tree, graph)
 
