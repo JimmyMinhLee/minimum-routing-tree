@@ -37,5 +37,17 @@ for input in rand_input:
     print("Average pairwise distance in MST: {}".format(average_pairwise_distance(tree)))
 
     solver = PairwiseDistanceTreeMST(tree, graph)
-    tree = solver.anneal()
+    tree, energy = solver.anneal()
+
+    # Original settings for annealer
+    # Tmax = 25000.0  # Max (starting) temperature
+    # Tmin = 2.5      # Min (ending) temperature
+    # steps = 50000   # Number of iterations
+    # updates = 100   # Number of updates (by default an update prints to stdout)
+
+    solver.Tmax = 10000.0
+    solver.Tmin = 0.0
+    solver.steps = 100
+    solver.updates = 100
+    print(tree)
     print("Average pairwise distance in solution: {}".format(average_pairwise_distance(tree)))

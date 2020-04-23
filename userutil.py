@@ -72,39 +72,36 @@ class PairwiseDistanceTreeMST(Annealer):
 
     def move(self):
         # IF ERROR WITH EDGE, MAKE SURE YOU INDEX TO 1!
-
-        # Debugging
-        print("Iteration: {}".format(self.iter))
-        print("Current state: {}, Count: {}".format(self.state.nodes(), len(self.state.nodes())))
-        self.iter += 1
-
         # Used later
         initial_energy = self.energy()
 
         # Perform algorithm:
+            # 1. Disconnect and use a different edge in the graph.
+            # 2. If this disconnects the components, reconnect them.
 
-        random_node = get_random_node(self.graph)
-        edges = get_edges(self.graph, random_node)
+        # 1.
+        disconnecting_edge = choose_random_edge(self.state.edges())
+        # print("Disconnecting edge: {}".format(disconnecting_edge))
+        # Endpoints of edge we'll disconnect:
+        u, v = disconnecting_edge[0], disconnecting_edge[1]
+        self.state.remove_edge(u, v)
 
-        random_edge = choose_random_edge(edges)
-        connecting_vertex = random_edge[1]
+        # O(V + E); they run DFS on each vertex.
+        u_cc = nx.node_connected_component(self.state, u)
+        v_cc = nx.node_connected_component(self.state, v)
+        # print("Connected components: {}, {}".format(u_cc, v_cc))
 
-        con_v_cc = nx.node_connected_component(self.state, connecting_vertex)
-        connecting_edges = find_edge(self.graph, random_node, con_v_cc)
-        print(connecting_edges)
+        # O(E^2); have to potentially check every node in each connected component
+        connecting_edges = find_connecting_edges(self.graph, u_cc, v_cc)
+        # print(connecting_edges)
 
-        new_edge = choose_random_edge(connecting_edges)
-        new_edge_weight = get_edge_weight(self.graph, random_node, connecting_vertex)
-        new_connecting_vertex = new_edge[1]
-
-        self.state.remove_edge(random_node, connecting_vertex)
-        self.state.add_edge(random_node, new_connecting_vertex, weight=new_edge_weight)
-
-        # Perform rerouting
-        # print("Removal state: {}, Count: {}".format(self.state.nodes(), len(self.state.nodes())))
-        # self.state.add_edge(random_node, other_node, weight = edge_weight)
-        # print("New state: {}, Count: {}".format(self.state.nodes(), len(self.state.nodes())))
-        # return initial_energy - self.energy()
+        # Pick a random connecting edge and add it to the tree.
+        random_connecting_edge = choose_random_edge(connecting_edges)
+        rce_edge_weight = get_edge_weight(self.graph, u, v)
+        u, v = random_connecting_edge[0], random_connecting_edge[1]
+        # print(random_connecting_edge)
+        self.state.add_edge(u, v, weight=rce_edge_weight)
+        return -1 * (initial_energy - self.energy())
 
 
     def energy(self):
@@ -170,6 +167,17 @@ def find_leaves(graph):
 # Get the MST of the graph.
 def get_mst(graph):
     return nx.minimum_spanning_tree(graph)
+
+# Finds an edge between two connected components.
+def find_connecting_edges(graph, cc1, cc2):
+    connecting_edges = []
+    for node in cc1:
+        edges = get_edges(graph, node)
+        for edge in edges:
+            if edge[1] in cc2:
+                connecting_edges.append(edge)
+    return connecting_edges
+
 
 # Finds an edge between a vertex and another connected component.
 def find_edge(graph, u, cc):

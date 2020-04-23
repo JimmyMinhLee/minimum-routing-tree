@@ -42,38 +42,9 @@ def test_move_MST():
 
     print("All nodes: {}".format(mst.nodes()))
 
-    random_node = get_random_node(G)
-    edges = get_edges(G, random_node)
-    print("Edges to node: {}; {}".format(random_node, edges))
-    # Must always index to [1] to find the other edge.
-    # Perform algorithm
-    random_node = get_random_node(G)
-    print("Random node: {}".format(random_node))
-    edges = get_edges(G, random_node)
-
-    # if this random node is a leaf to the tree, route it somewhere else.
-    if len(edges) == 1:
-        pass
-
-    # otherwise, reroute while preserving validity.
-    random_edge = choose_random_edge(edges)
-    connecting_vertex = random_edge[1]
-
-    con_v_cc = nx.node_connected_component(G, connecting_vertex)
-    connecting_edges = find_edge(G, random_node, con_v_cc)
-
-    new_edge = choose_random_edge(connecting_edges)
-    new_edge_weight = get_edge_weight(G, random_node, new_edge[1])
-    new_connecting_vertex = new_edge[1]
-
-    mst.remove_edge(connecting_vertex, random_node)
-    mst.add_edge(random_node, new_connecting_vertex, weight = new_edge_weight)
-
-
-    print("New edges to node: {}; {}".format(random_node, edges))
-
-    print("All nodes: {}".format(mst.nodes()))
-    print("Is new graph connected: {}".format(nx.is_connected(mst)))
+    solver = PairwiseDistanceTreeMST(mst, G)
+    solver.move()
+    print("Is connected? {}".format(nx.is_connected(solver.state)))
 
 def test_find_edge():
     g = create_G()
@@ -81,6 +52,7 @@ def test_find_edge():
 
     g.add_edge(10, 1, weight="10")
     print(find_edge(g, 10, mst))
+    
 # create_G()
 # test_get_rand_node()
 # test_get_edges()
