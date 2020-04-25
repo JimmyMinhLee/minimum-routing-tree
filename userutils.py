@@ -5,228 +5,182 @@ from copy import deepcopy
 from simanneal import Annealer
 import random as rand
 
-"""
-We're going to use simulated annealling on our graph
-to make it constantly change and check for the best solution.
-I think that this does things greedily at first, because the
-probability of choosing a better option will always be higher
-than if we choose a worse option.
-
-The two primary ideas I have:
-    1. Start with an MST. Then, randomly choose a vertex in the graph
-    and see if we can add/remove it from the tree in a way that will
-    make the cost better.
-
-    2. Start with a single node. Then, randomly choose a vertex in the
-    graph and see if it will make the cost better.
-
-Considerations:
-    1. What is the state of the algorithm?
-    2. How do we want to define movement?
-    3. Would it be better to start with just one node in the tree and build
-    our graph from there?
-
-### Starting with an MST  ###
-    Algorithm:
-        1. Start with the MST.
-        2. State will be the tree thus far: T = nx.Graph().
-        3. Then, "move" will pick an arbitrary vertex in the graph,
-        and add it to our state.
-        4. We want to stop when T is a valid_network of the graph G.
-
-    How to define move?
-        1. We want the algorithm to construct a valid network of the graph.
-        2. Given that a node is already in the network, we want to see if
-        removing it could be accomplished while retaining the validity of
-        the graph.
-            a. Using copy.deep_copy to track the states of both
-            may be too costly, so we'll need to find a better way of
-            doing this.
-        3. If the node is not in the network, we want to see if
-        adding the node will improve the cost of our MST - this should be easy.
+def test_function(graph):
+    pass
+    # Perform a test on whatever you want to run right now
 
 
-    Considerations:
-        1. This doesn't account for being able to remove nodes, but I think
-        for simplicity's sake we can start by just randomly adding nodes into
-        the tree. Once we get that T is a valid network, we stop.
-
-    Potential Optimizations:
-        1. Use some pruning algorithm after we construct the T to remove
-        nodes from the graph wherever possible.
-
-    Log: April 23
-        1. Start with the MST.
-        2. Prune initially.
-        3. Then, re-arrange edges inside of the tree.
-        4. Maybe prune again?
-"""
-
-def get_cost_scalar(cost):
-    if cost > 50:
-        return 1
-    if cost > 20:
-        return 3
-    else:
-        return 5
 
 # Annealer that uses MST at first.
-class PairwiseDistanceTreeMST(Annealer):
+class MST(Annealer):
     def __init__(self, state, graph):
         self.state = state
         self.graph = graph
         self.iter = 0
-
         initial_c = average_pairwise_distance(self.state)
         # self.cost_scalar = 1 / initial_c
         self.cost_scalar = 1
-
         super(PairwiseDistanceTreeMST, self).__init__(state)  # important!
 
     def move(self):
-        # IF ERROR WITH EDGE, MAKE SURE YOU INDEX TO 1!
-        # Perform algorithm:
-            # 1. Disconnect and use a different edge in the graph.
-            # 2. If this disconnects the components, reconnect them.
-
-        # 1
         disconnecting_edge = choose_random_edge(self.state.edges())
-        # print("Disconnecting edge: {}".format(disconnecting_edge))
-        # Endpoints of edge we'll disconnect:
         u, v = disconnecting_edge[0], disconnecting_edge[1]
         self.state.remove_edge(u, v)
-
-        # 2
-        # O(V + E); they run DFS on each vertex.
         u_cc = nx.node_connected_component(self.state, u)
         v_cc = nx.node_connected_component(self.state, v)
-        # print("Connected components: {}, {}".format(u_cc, v_cc))
-
-        # O(E^2); have to potentially check every node in each connected component
         connecting_edges = find_connecting_edges(self.graph, u_cc, v_cc)
-        # print(connecting_edges)
-
-        # Pick a random connecting edge and add it to the tree.
         random_connecting_edge = choose_random_edge(connecting_edges)
         rce_edge_weight = get_edge_weight(self.graph, u, v)
         u, v = random_connecting_edge[0], random_connecting_edge[1]
-        # print(random_connecting_edge)
         self.state.add_edge(u, v, weight=rce_edge_weight)
 
     def energy(self):
         return self.cost_scalar * average_pairwise_distance(self.state)
 
-class PairwiseDistanceTreeMSTPrune(Annealer):
+# Random edges
+class MSTPrune(Annealer):
     def __init__(self, state, graph):
-        # print("Initial cost: {}".format(average_pairwise_distance(state)))
         self.state = prune(state)
-        # print("Pruned cost: {}".format(average_pairwise_distance(self.state)))
         self.graph = graph
         self.iter = 0
-
         initial_c = average_pairwise_distance(self.state)
-        # self.cost_scalar = 1 / initial_c
         self.cost_scalar = 1
-
-        super(PairwiseDistanceTreeMSTPrune, self).__init__(state)  # important!
+        super(MSTPrune, self).__init__(state)  # important!
 
     def move(self):
-        # IF ERROR WITH EDGE, MAKE SURE YOU INDEX TO 1!
-        # Perform algorithm:
-            # 1. Disconnect and use a different edge in the graph.
-            # 2. If this disconnects the components, reconnect them.
-
         if self.state.nodes() == 1 and is_valid_network(self.state, graph):
             return 0
-
-        # 1
         disconnecting_edge = choose_random_edge(self.state.edges())
-        # Endpoints of edge we'll disconnect:
         if disconnecting_edge == None:
             return
         u, v = disconnecting_edge[0], disconnecting_edge[1]
         self.state.remove_edge(u, v)
-
-        # 2
-        # O(V + E); they run DFS on each vertex.
         u_cc = nx.node_connected_component(self.state, u)
         v_cc = nx.node_connected_component(self.state, v)
-        # print("Connected components: {}, {}".format(u_cc, v_cc))
-
-        # O(E^2); have to potentially check every node in each connected component
         connecting_edges = find_connecting_edges(self.graph, u_cc, v_cc)
-        # print(connecting_edges)
-
         if len(connecting_edges) == 0:
             self.state.add_edge(u, v, get_edge_weight(self.state, u, v))
             return
         else:
-            # Pick a random connecting edge and add it to the tree.
             random_connecting_edge = choose_random_edge(connecting_edges)
             rce_edge_weight = get_edge_weight(self.graph, u, v)
             u, v = random_connecting_edge[0], random_connecting_edge[1]
-            # print(random_connecting_edge)
             self.state.add_edge(u, v, weight=rce_edge_weight)
 
     def energy(self):
         return self.cost_scalar * average_pairwise_distance(self.state)
 
-
-# Annealer that uses the dominating set at first.
-class PairwiseDistanceDom(Annealer):
+# Starting with MST, disconnects a random edge, adds the minimum across cut
+class MSTSmartRandomDisconnect(Annealer):
     def __init__(self, state, graph):
-        self.state = state
+        self.state = prune(state)
+        print(average_pairwise_distance(self.state))
         self.graph = graph
         self.iter = 0
-        super(PairwiseDistanceDom, self).__init__(state)  # important!
+        self.cost_scalar = 1
+        super(MSTSmartRandomDisconnect, self).__init__(state)  # important!
 
     def move(self):
-        # IF ERROR WITH EDGE, MAKE SURE YOU INDEX TO 1!
-        # Used later
-        initial_energy = self.energy()
-        if len(self.state.nodes() == 1) and is_valid_network(self.state, graph):
+        if self.state.nodes() == 1 and is_valid_network(self.state, graph):
             return 0
-
-        # Perform algorithm:
-        # 1. Add a random vertex.
-        # 2. Remove a random vertex.
-
-        # 1
-        random_edge = choose_random_edge(self.graph.edges())
-        u, v = random_edge[0], random_edge[1]
-        re_weight = get_edge_weight(self.graph, u, v)
-        self.state.add_edge(u, v, weight = re_weight)
-
-        # 2
         disconnecting_edge = choose_random_edge(self.state.edges())
-        # print("Disconnecting edge: {}".format(disconnecting_edge))
         if disconnecting_edge == None:
             return
-        # Endpoints of edge we'll disconnect:
         u, v = disconnecting_edge[0], disconnecting_edge[1]
         self.state.remove_edge(u, v)
 
-        # 2
-        # O(V + E); they run DFS on each vertex.
         u_cc = nx.node_connected_component(self.state, u)
         v_cc = nx.node_connected_component(self.state, v)
-        # print("Connected components: {}, {}".format(u_cc, v_cc))
-
-        # O(E^2); have to potentially check every node in each connected component
         connecting_edges = find_connecting_edges(self.graph, u_cc, v_cc)
-        # print(connecting_edges)
 
-        # Pick a random connecting edge and add it to the tree.
-        random_connecting_edge = choose_random_edge(connecting_edges)
-        rce_edge_weight = get_edge_weight(self.graph, u, v)
-        u, v = random_connecting_edge[0], random_connecting_edge[1]
-        # print(random_connecting_edge)
-        self.state.add_edge(u, v, weight=rce_edge_weight)
+        if len(connecting_edges) == 0:
+            self.state.add_edge(u, v, min_edge_weight)
+            return
+        else:
+            min_edge, min_edge_weight = minimum_edge_across_cut(self.graph, u_cc, v_cc)
+            u, v = min_edge[0], min_edge[1]
+            self.state.add_edge(u, v, weight=min_edge_weight)
 
     def energy(self):
         return average_pairwise_distance(self.state)
 
+# Start with the SPT on the dominating set
+class DomSet(Annealer):
+    def __init__(self, state, graph):
+        self.state = state
+        self.graph = graph
+        super(DomSet, self).__init__(state)
+
+    def move(self):
+        pass
+
+    def cost(self):
+        return average_pairwise_distance(self.state)
+
 # Section: Helper Functions
+
+def construct_domsetSPT(graph):
+    tree = nx.Graph()
+    domset = list(nx.dominating_set(graph))
+    starter_node = domset[0]
+    tree.add_node(starter_node)
+    dist, shortest_paths = nx.single_source_dijkstra(graph, starter_node)
+    print(shortest_paths)
+
+# Gets the maximum edge in a graph.
+def get_max_edge(graph):
+    max_edge = None
+    max_edge_weight = 0
+    for edge in graph.edges():
+        if max_edge == None:
+            max_edge = edge
+            max_edge_weight = get_edge_weight(graph, edge[0], edge[1])
+        if max_edge_weight < get_edge_weight(graph, edge[0], edge[1]):
+            max_edge = edge
+            max_edge_weight = get_edge_weight(graph, edge[0], edge[1])
+    return max_edge
+
+# Partitions the graph into two sets.
+def partition_graph(graph):
+    copy_nodes = []
+    for node in graph.nodes():
+        copy_nodes.append(node)
+    random.shuffle(copy_nodes)
+    midway = int(len(copy_nodes) / 2)
+    end = int(len(copy_nodes))
+    set1 = copy_nodes[0 : midway]
+    set2 = copy_nodes[midway : end]
+    return set1, set2
+
+# Chooses the maximum edge across a cut.
+def maximum_edge_across_cut(graph, set1, set2):
+    cross_edges = find_connecting_edges(graph, set1, set2)
+    best_edge = None
+    best_edge_weight = 0
+    for edge in cross_edges:
+        u, v = edge[0], edge[1]
+        if best_edge == None:
+            best_edge = edge
+            best_edge_weight = get_edge_weight(graph, u, v)
+        edge_weight = get_edge_weight(graph, edge[0], edge[1])
+        if edge_weight > best_edge_weight:
+            best_edge = edge
+    return best_edge, best_edge_weight
+
+# Chooses the minimum edge across a cut.
+def minimum_edge_across_cut(graph, set1, set2):
+    cross_edges = find_connecting_edges(graph, set1, set2)
+    best_edge = None
+    best_edge_weight = 0
+    for edge in cross_edges:
+        u, v = edge[0], edge[1]
+        if best_edge == None:
+            best_edge = edge
+            best_edge_weight = get_edge_weight(graph, u, v)
+        edge_weight = get_edge_weight(graph, edge[0], edge[1])
+        if edge_weight < best_edge_weight:
+            best_edge = edge
+    return best_edge, best_edge_weight
 
 # Choose random edge.
 def choose_random_edge(edge_list):
@@ -375,3 +329,24 @@ def prune(tree):
             pass
 
     return tree
+
+def our_min_domset(G, weight=None):
+    if len(G) == 0:
+        return set()
+    dom_set = set()
+    dom_tree = nx.Graph()
+    def _cost(node_and_neighborhood):
+        v, neighborhood = node_and_neighborhood
+        return G.nodes[v].get(weight, 1) / len(neighborhood - dom_set)
+
+    vertices = set(G)
+    neighborhoods = {v: {v} | set(G[v]) for v in G}
+
+    while vertices:
+        dom_node, min_set = min(neighborhoods.items(), key=_cost)
+        dom_set.add(dom_node)
+        dom_tree.add_node(dom_node)
+        del neighborhoods[dom_node]
+        vertices -= min_set
+
+    return dom_set

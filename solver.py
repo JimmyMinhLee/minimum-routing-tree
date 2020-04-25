@@ -1,7 +1,7 @@
 import networkx as nx
 from parse import read_input_file, write_output_file
 from utils import is_valid_network, average_pairwise_distance
-from userutil import *
+from userutils import *
 import time
 import sys, os
 
@@ -20,7 +20,7 @@ def solve(graph, steps):
     mst = get_mst(graph)
     initial_cost = average_pairwise_distance(mst)
     print("### Initial_cost: {} ###".format(initial_cost))
-    solver = PairwiseDistanceTreeMSTPrune(mst, graph)
+    solver = MSTPrune(mst, graph)
     solver.steps = steps
     tree, energy = solver.anneal()
     solved_cost = average_pairwise_distance(tree)

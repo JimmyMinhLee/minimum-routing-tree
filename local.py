@@ -2,7 +2,7 @@ import networkx as nx
 from parse import read_input_file, write_output_file
 from utils import is_valid_network, average_pairwise_distance
 from solver import *
-from userutil import *
+from userutils import *
 import sys, os, random
 
 
@@ -28,12 +28,18 @@ import sys, os, random
 #     print("Average pairwise distance in MST with pruning: {}".format(average_pairwise_distance(our_tree)))
 #     print(is_valid_network(graph, our_tree))
 
-# rand_input = [get_rand_medium() for i in range(1)]
-rand_input = [get_minput(111)]
+rand_input = [get_rand_medium() for i in range(1)]
+# rand_input = [get_minput(111)]
 print(rand_input)
 # medium 111 causes problems
 # print(rand_input)
 for input in rand_input:
     graph = read_input_file(input)
     # print("Graph nodes: {}".format(graph.nodes()))
-    solve(graph, 1000)
+    mst = get_mst(graph)
+
+    print("Original cost: {}".format(average_pairwise_distance(mst)))
+    mst_prune = MSTSmartRandomDisconnect(mst, graph)
+    mst_prune.steps = 5000
+    tree, energy = mst_prune.anneal()
+    print("Final cost: {}".format(average_pairwise_distance(tree)))
