@@ -51,14 +51,24 @@ def solve(graph):
     best_tree = pruned_mst
     best_tree_weight = pruned_mst_cost
 
+    # Parameters for landscaping - can change to let the solution space explore more
+    lscape_minutes = 1
+    lscape_steps = 3000
+
     solution_trees = []
     for annealer in annealers:
         # print(annealer)
-        annealer.steps = 1000
-        tree, energy = annealer.anneal()
+        print("performing landscaping of solution space")
+        auto_schedule = annealer.auto(minutes=lscape_minutes, steps = lscape_steps)
         print()
-        print("Resulting solution cost: {}".format(energy))
-        solution_trees.append(tree)
+        print("done landscaping, schedule set: {}".format(auto_schedule))
+        print('performing annealling')
+        for i in range(3):
+            annealer.set_schedule(auto_schedule)
+            tree, energy = annealer.anneal()
+            print()
+            print("Resulting solution cost: {}".format(energy))
+            solution_trees.append(tree)
 
     for tree in solution_trees:
         if average_pairwise_distance(tree) < best_tree_weight:
