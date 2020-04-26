@@ -20,6 +20,7 @@ def solve(graph):
     mst = get_mst(graph)
     pruned_mst = prune(mst)
     pruned_mst_cost = average_pairwise_distance(pruned_mst)
+    print("Pruned MST cost: {}".format(pruned_mst_cost))
 
     domset = better_domset_approx(graph)
     if len(domset.nodes()) == 1:
@@ -37,6 +38,7 @@ def solve(graph):
         annealer.set_schedule(schedule)
         for _ in range(5):
             tree, energy = annealer.anneal()
+            print("Tree cost found: {}".format(average_pairwise_distance(tree)))
             trees.append(tree)
 
     best_tree = pruned_mst
