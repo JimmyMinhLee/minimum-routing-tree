@@ -74,6 +74,12 @@ def test_construct_domsetSPT():
     g = create_G()
     print(construct_domsetSPT(g))
 
+def test_domset_approx():
+    g = create_G()
+    print(domset_approx(g))
+
+def test_better_domset():
+    pass
 # create_G()
 # test_get_rand_node()
 # test_get_edges()
@@ -85,4 +91,6 @@ def test_construct_domsetSPT():
 # test_partition_graph()
 # test_choose_max_cut_edge()
 # test_max_edge()
-test_construct_domsetSPT()
+# test_construct_domsetSPT()
+# test_domset_approx()
+# test_better_domset()

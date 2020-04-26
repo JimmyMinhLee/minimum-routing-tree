@@ -6,7 +6,7 @@ import time
 import sys, os
 
 
-def solve(graph, steps):
+def solve(graph):
     """
     Args:
         G: networkx.Graph
@@ -18,15 +18,40 @@ def solve(graph, steps):
     # TODO: your code here!
     # return mst_with_pruning(G)
     mst = get_mst(graph)
-    initial_cost = average_pairwise_distance(mst)
-    print("### Initial_cost: {} ###".format(initial_cost))
-    solver = MSTPrune(mst, graph)
-    solver.steps = steps
-    tree, energy = solver.anneal()
-    solved_cost = average_pairwise_distance(tree)
-    ratio = 1 - (solved_cost / initial_cost)
-    print("### Solved cost: {}. Improvement ratio: {} ###".format(solved_cost, ratio))
-    return tree
+    pruned_mst = prune(mst)
+    pruned_mst_cost = average_pairwise_distance(pruned_mst)
+
+    domset = better_domset_approx(graph)
+    if len(domset.nodes()) == 1:
+        return domset
+
+    # Dominating Set Initial Solutions
+    domset_mstmove = DomSetMSTMove(domset, graph)
+    domset_normal = DomSet(domset, graph)
+
+    annealers = [domset_mstmove, domset_normal]
+    trees = [pruned_mst]
+
+    for annealer in annealers:
+        schedule = annealer.auto(minutes=.5)
+        annealer.set_schedule(schedule)
+        tree, energy = annealer.anneal()
+        trees.append(tree)
+
+    best_tree = pruned_mst
+    best_weight = pruned_mst_cost
+
+    for tree in trees:
+        if average_pairwise_distance(tree) < best_tree:
+            best_tree = tree
+            best_tree_weight = average_pairwise_distance(tree)
+
+    return best_tree
+
+
+
+
+
 
 
 
@@ -62,19 +87,8 @@ if __name__ == '__main__':
     inputs_path = current_folder + input_path
     for input in os.listdir(inputs_path):
         G = read_input_file(inputs_path + '/' + input)
-        if 'large' in input:
-            steps = steps_dict['large']
-            print("Solving {}, with stepsize: {}".format(input, steps))
-
-        if 'medium' in input:
-            steps = steps_dict['medium']
-            print("Solving {}, with stepsize: {}".format(input, steps))
-
-        if 'small' in input:
-            steps = steps_dict['small']
-            print("Solving {}, with stepsize: {}".format(input, steps))
-
-        T = solve(G, steps)
+        print("solving: {}".format(input))
+        T = solve(G)
         assert is_valid_network(G, T)
         # print("Average  pairwise distance: {}".format(average_pairwise_distance(T)))
         write_output_file(T, 'mst_outputs/{}'.format(input[0:len(input) - 2] + 'out'))

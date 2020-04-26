@@ -196,8 +196,8 @@ def our_min_domset(G, weight=None):
         dom_tree.add_node(dom_node)
         del neighborhoods[dom_node]
         vertices -= min_set
-
     return dom_set
+
 # Ripped from source code #
 def min_weighted_dominating_set(G, weight=None):
     r"""Returns a dominating set that approximates the minimum weight node

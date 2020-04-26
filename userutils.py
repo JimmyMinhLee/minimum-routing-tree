@@ -3,6 +3,7 @@ import networkx as nx
 import sys, os, random
 from copy import deepcopy
 from simanneal import Annealer
+from networkx.algorithms.approximation import dominating_set
 import random as rand
 
 def test_function(graph):
@@ -17,10 +18,7 @@ class MST(Annealer):
         self.state = state
         self.graph = graph
         self.iter = 0
-        initial_c = average_pairwise_distance(self.state)
-        # self.cost_scalar = 1 / initial_c
-        self.cost_scalar = 1
-        super(PairwiseDistanceTreeMST, self).__init__(state)  # important!
+        super(MST, self).__init__(state)  # important!
 
     def move(self):
         disconnecting_edge = choose_random_edge(self.state.edges())
@@ -35,12 +33,12 @@ class MST(Annealer):
         self.state.add_edge(u, v, weight=rce_edge_weight)
 
     def energy(self):
-        return self.cost_scalar * average_pairwise_distance(self.state)
+        return average_pairwise_distance(self.state)
 
 # Random edges
 class MSTPrune(Annealer):
     def __init__(self, state, graph):
-        self.state = prune(state)
+        self.state = state
         self.graph = graph
         self.iter = 0
         initial_c = average_pairwise_distance(self.state)
@@ -73,12 +71,62 @@ class MSTPrune(Annealer):
 # Starting with MST, disconnects a random edge, adds the minimum across cut
 class MSTSmartRandomDisconnect(Annealer):
     def __init__(self, state, graph):
-        self.state = prune(state)
-        print(average_pairwise_distance(self.state))
+        self.state = state
         self.graph = graph
-        self.iter = 0
-        self.cost_scalar = 1
         super(MSTSmartRandomDisconnect, self).__init__(state)  # important!
+
+    def move(self):
+        if self.state.nodes() == 1 and is_valid_network(self.state, graph):
+            return 0
+        disconnecting_edge = choose_random_edge(self.state.edges())
+        if disconnecting_edge == None:
+            return
+        u, v = disconnecting_edge[0], disconnecting_edge[1]
+        self.state.remove_edge(u, v)
+
+        u_cc = nx.node_connected_component(self.state, u)
+        v_cc = nx.node_connected_component(self.state, v)
+        connecting_edges = find_connecting_edges(self.graph, u_cc, v_cc)
+
+        if len(connecting_edges) == 0:
+            self.state.add_edge(u, v, get_edge_weight(u, v))
+            return
+        else:
+            min_edge, min_edge_weight = minimum_edge_across_cut(self.graph, u_cc, v_cc)
+            u, v = min_edge[0], min_edge[1]
+            self.state.add_edge(u, v, weight=min_edge_weight)
+
+    def energy(self):
+        return average_pairwise_distance(self.state)
+
+# Start with the domset, partition the graph and take a random edge between them
+class DomSet(Annealer):
+    def __init__(self, state, graph):
+        self.state = state
+        self.graph = graph
+        super(DomSet, self).__init__(state)
+
+    def move(self):
+        if self.state.nodes() == 1 and is_valid_network(self.state, graph):
+            return 0
+        l, r = partition_graph(self.state)
+        max_edge, max_edge_weight = maximum_edge_across_cut(self.state, l, r)
+        if max_edge != None:
+            self.state.remove_edge(max_edge[0], max_edge[1])
+            u_cc = nx.node_connected_component(self.state, max_edge[0])
+            v_cc = nx.node_connected_component(self.state, max_edge[1])
+            min_edge, min_edge_weight = minimum_edge_across_cut(self.graph, u_cc, v_cc)
+            u, v = min_edge[0], min_edge[1]
+            self.state.add_edge(u, v, weight=min_edge_weight)
+
+    def energy(self):
+        return average_pairwise_distance(self.state)
+
+class DomSetMSTMove(Annealer):
+    def __init__(self, state, graph):
+        self.state = state
+        self.graph = graph
+        super(DomSetMSTMove, self).__init__(state)
 
     def move(self):
         if self.state.nodes() == 1 and is_valid_network(self.state, graph):
@@ -103,29 +151,56 @@ class MSTSmartRandomDisconnect(Annealer):
 
     def energy(self):
         return average_pairwise_distance(self.state)
-
-# Start with the SPT on the dominating set
-class DomSet(Annealer):
-    def __init__(self, state, graph):
-        self.state = state
-        self.graph = graph
-        super(DomSet, self).__init__(state)
-
-    def move(self):
-        pass
-
-    def cost(self):
-        return average_pairwise_distance(self.state)
-
 # Section: Helper Functions
 
-def construct_domsetSPT(graph):
-    tree = nx.Graph()
-    domset = list(nx.dominating_set(graph))
-    starter_node = domset[0]
-    tree.add_node(starter_node)
-    dist, shortest_paths = nx.single_source_dijkstra(graph, starter_node)
-    print(shortest_paths)
+# Do a better job with constructing a tree on the domset
+def better_domset_approx(graph):
+    dom_set = nx.algorithms.approximation.min_weighted_dominating_set(graph, weight='weight')
+    copy_graph = deepcopy(graph)
+    connected_components = list(nx.algorithms.connected_components(graph))
+    t = nx.Graph()
+
+    dom_list = list(dom_set)
+    if len(dom_set) == 1:
+        t.add_node(list(dom_set)[0])
+        return t
+
+    root_node = dom_list.pop()
+    for next_root_node in dom_list:
+        path = nx.dijkstra_path(graph, root_node, next_root_node)
+        current_node = root_node
+        for node in path[1:]:
+            weight = get_edge_weight(graph, current_node, node)
+            t.add_edge(current_node, node, weight=weight)
+            current_node = node
+        root_node = next_root_node
+
+    while nx.is_tree(copy_graph) != True:
+        try:
+            cycle = list(nx.find_cycle(t))
+            remove_cycles(t, dom_set, cycle)
+        except:
+            break
+    return t
+
+# Construct domset approximation
+def domset_approx(graph):
+    dom_set = nx.algorithms.approximation.min_weighted_dominating_set(graph, weight='weight')
+    copy_graph = deepcopy(graph)
+    while nx.is_tree(copy_graph) != True:
+        try:
+            cycle = list(nx.find_cycle(copy_graph))
+            remove_cycles(copy_graph, dom_set, cycle)
+        except:
+            break
+    # print(list(nx.algorithms.connected_components(copy_graph)))
+    return copy_graph
+
+# Remove cycles according to "A Note on Dominating Sets and Average Distance"
+def remove_cycles(graph, dominating_set, cycle):
+    edge = cycle[0]
+    x, y = edge[0], edge[1]
+    graph.remove_edge(x, y)
 
 # Gets the maximum edge in a graph.
 def get_max_edge(graph):
@@ -146,7 +221,7 @@ def partition_graph(graph):
     for node in graph.nodes():
         copy_nodes.append(node)
     random.shuffle(copy_nodes)
-    midway = int(len(copy_nodes) / 2)
+    midway = int(len(copy_nodes) / 4)
     end = int(len(copy_nodes))
     set1 = copy_nodes[0 : midway]
     set2 = copy_nodes[midway : end]
@@ -169,6 +244,8 @@ def maximum_edge_across_cut(graph, set1, set2):
 
 # Chooses the minimum edge across a cut.
 def minimum_edge_across_cut(graph, set1, set2):
+    if set1 == set2:
+        return None
     cross_edges = find_connecting_edges(graph, set1, set2)
     best_edge = None
     best_edge_weight = 0
