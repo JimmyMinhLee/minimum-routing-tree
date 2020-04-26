@@ -35,8 +35,9 @@ def solve(graph):
     for annealer in annealers:
         schedule = annealer.auto(minutes=.5)
         annealer.set_schedule(schedule)
-        tree, energy = annealer.anneal()
-        trees.append(tree)
+        for _ in range(5):
+            tree, energy = annealer.anneal()
+            trees.append(tree)
 
     best_tree = pruned_mst
     best_weight = pruned_mst_cost
