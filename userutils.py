@@ -90,11 +90,40 @@ class MSTSmartRandomDisconnect(Annealer):
 
         if len(connecting_edges) == 0:
             self.state.add_edge(u, v, get_edge_weight(u, v))
-            return
         else:
             min_edge, min_edge_weight = minimum_edge_across_cut(self.graph, u_cc, v_cc)
             u, v = min_edge[0], min_edge[1]
             self.state.add_edge(u, v, weight=min_edge_weight)
+
+        min_edge, min_edge_weight = minimum_edge_across_cut(self.graph, u_cc, v_cc)
+        u, v = min_edge[0], min_edge[1]
+        self.state.add_edge(u, v, weight=min_edge_weight)
+
+    def energy(self):
+        return average_pairwise_distance(self.state)
+
+class MSTSmartRandomAdd(Annealer):
+    def __init__(self, state, graph):
+        self.state = state
+        self.graph = graph
+        super(MSTSmartRandomAdd, self).__init__(state)  # important!
+
+    def move(self):
+        if self.state.nodes() == 1 and is_valid_network(self.state, graph):
+            return 0
+
+        l, r = partition_graph(self.state)
+        max_edge, max_edge_weight = maximum_edge_across_cut(self.state, l, r)
+        if max_edge != None:
+            self.state.remove_edge(max_edge[0], max_edge[1])
+            u_cc = nx.node_connected_component(self.state, max_edge[0])
+            v_cc = nx.node_connected_component(self.state, max_edge[1])
+
+            connecting_edges = find_connecting_edges(self.graph, u_cc, v_cc)
+            random_edge = choose_random(connecting_edges)
+            u, v = random_edge[0], random_edge[1]
+            weight = get_edge_weight(self.graph, u, v)
+            self.state.add_edge(u, v, weight=weight)
 
     def energy(self):
         return average_pairwise_distance(self.state)

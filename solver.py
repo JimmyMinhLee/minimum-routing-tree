@@ -17,6 +17,16 @@ def solve(graph):
 
     # TODO: your code here!
     # return mst_with_pruning(G)
+
+    """
+    Annealers:
+        MST - random choice in adding an edge and diconnecting an edge
+        MSTSmartRandomDisconnect - removes a random edge, adds the minimum across cut
+        MSTSmartRandomAdd - removes maximum edge across cut, adds a random edge
+
+        DomSet - removes maximum edge across cut, adds minimum edge across cut
+        DomSetMSTMove - removes random edge, adds minimum edge across cut
+    """
     mst = get_mst(graph)
     pruned_mst = prune(mst)
     pruned_mst_cost = average_pairwise_distance(pruned_mst)
@@ -26,30 +36,40 @@ def solve(graph):
     if len(domset.nodes()) == 1:
         return domset
 
-    # Dominating Set Initial Solutions
-    domset_mstmove = DomSetMSTMove(domset, graph)
-    domset_normal = DomSet(domset, graph)
+    # Run annealers on MST graphs
+    pruned_mst1 = MST(pruned_mst, graph)
+    pruned_mst2 = MSTSmartRandomAdd(pruned_mst, graph)
+    pruned_mst3 = MSTSmartRandomDisconnect(pruned_mst, graph)
 
-    annealers = [domset_mstmove, domset_normal]
-    trees = [pruned_mst]
+    # Run annealers on DomSet graphs
+    domset_1 = MST(domset, graph)
+    domset_2 = MSTSmartRandomAdd(domset, graph)
+    domset_3 = MSTSmartRandomDisconnect(domset, graph)
 
-    for annealer in annealers:
-        schedule = annealer.auto(minutes=.5)
-        annealer.set_schedule(schedule)
-        for _ in range(5):
-            tree, energy = annealer.anneal()
-            print("Tree cost found: {}".format(average_pairwise_distance(tree)))
-            trees.append(tree)
+    annealers = [pruned_mst1, pruned_mst2, pruned_mst3, domset_1, domset_2, domset_3]
 
     best_tree = pruned_mst
-    best_weight = pruned_mst_cost
+    best_tree_weight = pruned_mst_cost
 
-    for tree in trees:
-        if average_pairwise_distance(tree) < best_tree:
+    solution_trees = []
+    for annealer in annealers:
+        # print(annealer)
+        annealer.steps = 1000
+        tree, energy = annealer.anneal()
+        print()
+        print("Resulting solution cost: {}".format(energy))
+        solution_trees.append(tree)
+
+    for tree in solution_trees:
+        if average_pairwise_distance(tree) < best_tree_weight:
             best_tree = tree
             best_tree_weight = average_pairwise_distance(tree)
 
-    return best_tree
+    print("Best tree found of cost: {}".format(best_tree_weight))
+    return tree
+
+
+
 
 
 
