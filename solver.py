@@ -30,10 +30,11 @@ def solve(graph):
     mst = get_mst(graph)
     pruned_mst = prune(mst)
     pruned_mst_cost = average_pairwise_distance(pruned_mst)
-    print("Pruned MST cost: {}".format(pruned_mst_cost))
+    print("Pruned MST cost: {}".format(pruned_mst_cost), flush=True)
 
     domset = better_domset_approx(graph)
     if len(domset.nodes()) == 1:
+        print("Found a dominating set of size 0!", flush=True)
         return domset
 
     # Run annealers on MST graphs
@@ -46,28 +47,41 @@ def solve(graph):
     domset_2 = MSTSmartRandomAdd(domset, graph)
     domset_3 = MSTSmartRandomDisconnect(domset, graph)
 
-    annealers = [pruned_mst1, pruned_mst2, pruned_mst3, domset_1, domset_2, domset_3]
+    mst_annealers = [pruned_mst1, pruned_mst2, pruned_mst3]
+    domset_annealers = [domset_1]
 
     best_tree = pruned_mst
     best_tree_weight = pruned_mst_cost
 
     # Parameters for landscaping - can change to let the solution space explore more
     lscape_minutes = 1
-    lscape_steps = 3000
 
     solution_trees = []
-    for annealer in annealers:
-        # print(annealer)
-        print("performing landscaping of solution space")
-        auto_schedule = annealer.auto(minutes=lscape_minutes, steps = lscape_steps)
-        print()
-        print("done landscaping, schedule set: {}".format(auto_schedule))
-        print('performing annealling')
-        for i in range(3):
+
+    # for annealer in mst_annealers:
+    #     print(annealer, flush=True)
+    #     print('performing annealling on mst initial solutions', flush=True)
+    #     for i in range(1):
+    #         # annealer.set_schedule(auto_schedule)
+    #         # annealer.steps = 1000
+    #         annealer.steps = 7500
+    #         tree, energy = annealer.anneal()
+    #         print('\n')
+    #         print("Resulting solution cost: {}".format(energy), flush=True)
+    #         solution_trees.append(tree)
+
+    annealer = domset_annealers[0]
+    print("performing landscaping of solution space", flush=True)
+    auto_schedule = {'tmax': 500.0, 'tmin': 0.025, 'steps': 25000, 'updates': 100}
+    print('\n')
+    print("done landscaping, schedule set: {}".format(auto_schedule), flush=True)
+    print('performing annealling on domset initial solutions', flush=True)
+    for annealer in domset_annealers:
+        for i in range(1):
             annealer.set_schedule(auto_schedule)
             tree, energy = annealer.anneal()
-            print()
-            print("Resulting solution cost: {}".format(energy))
+            print('\n')
+            print("Resulting solution cost: {}".format(energy), flush=True)
             solution_trees.append(tree)
 
     for tree in solution_trees:
@@ -75,32 +89,10 @@ def solve(graph):
             best_tree = tree
             best_tree_weight = average_pairwise_distance(tree)
 
-    print("Best tree found of cost: {}".format(best_tree_weight))
-    return tree
-
-
-
-
-
-
-
-
-
-
-
-
-# Here's an example of how to run your solver.
-
-# Usage: python3 solver.py test.in
-
-# if __name__ == '__main__':
-#     assert len(sys.argv) == 2
-#     path = sys.argv[1]
-#     G = read_input_file(path)
-#     T = solve(G)
-#     assert is_valid_network(G, T)
-#     print("Average  pairwise distance: {}".format(average_pairwise_distance(T)))
-#     write_output_file(T, 'out/test.out')
+    # print("Best tree found of cost: {}".format(best_tree_weight), flush=True)
+    pruned_mst_weight = pruned_mst_cost
+    print("Pruned MST Cost: {}, Best tree cost: {}".format(pruned_mst_weight, best_tree_weight))
+    return best_tree
 
 steps_dict = {
 
@@ -116,14 +108,22 @@ if __name__ == '__main__':
     assert len(sys.argv) == 2
     input_path = sys.argv[1]
     current_folder = sys.path[0]
-
+    print("solving large inputs", flush=True)
     inputs_path = current_folder + input_path
     for input in os.listdir(inputs_path):
-        G = read_input_file(inputs_path + '/' + input)
-        print("solving: {}".format(input))
-        T = solve(G)
-        assert is_valid_network(G, T)
-        # print("Average  pairwise distance: {}".format(average_pairwise_distance(T)))
-        write_output_file(T, 'mst_outputs/{}'.format(input[0:len(input) - 2] + 'out'))
+        if "large" in input:
+            G = read_input_file(inputs_path + '/' + input)
+            print("solving: {}".format(input))
+            T = solve(G)
+            assert is_valid_network(G, T)
+            print("Final pairwise distance: {}".format(average_pairwise_distance(T)))
+            output_string = input[0:len(input) - 2] + "out"
+            output_string = output_string.replace("input", "output")
+            print(output_string, flush=True)
+            file_path = "C:/Users/jimmy\desktop/proj/outputs/" + output_string
+            write_output_file(T, file_path)
+            os.remove(inputs_path + '/' + input)
+
+
     t1 = time.time()
     print("Elapsed time: {}".format(t1 - t0))

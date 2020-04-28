@@ -5,7 +5,7 @@ from solver import *
 from userutils import *
 import sys, os, random
 
-rand_input = get_rand_medium()
+rand_input = get_sinput(100)
 
 graph = read_input_file(rand_input)
 
@@ -16,14 +16,23 @@ print(average_pairwise_distance(pruned_mst))
 domset = better_domset_approx(graph)
 print(average_pairwise_distance(domset))
 
+print("large" in rand_input, flush=True)
 # Dominating Set Initial Solutions
 domset_mstmove = MST(domset, graph)
-print('landscaping')
-auto_schedule = domset_mstmove.auto(minutes=.5, steps=5000)
+# domset_mstmove.steps = 1000
+print('landscaping', flush=True)
+auto_schedule = domset_mstmove.auto(minutes=.1)
 print()
-print('annealing')
+print('annealing', flush=True)
 print('auto schdule', auto_schedule)
 domset_mstmove.set_schedule(auto_schedule)
 tree, energy = domset_mstmove.anneal()
 print()
-print(energy)
+print(energy, flush=True)
+
+input = rand_input
+
+output_string = rand_input[0:len(rand_input) - 2] + "out"
+output_string = output_string.replace("input", "output")
+print(output_string, flush=True)
+write_output_file(tree, output_string)
