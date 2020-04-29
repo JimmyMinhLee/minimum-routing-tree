@@ -99,7 +99,6 @@ def read_output_file(path, G):
 
         assert len(T) > 0
         assert utils.is_valid_network(G, T)
-
         return T
 
 
