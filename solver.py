@@ -13,62 +13,47 @@ def solve(graph):
 
     Returns:
         T: networkx.Graph
+
+    We're going to run the graph on a few inputs and compare them.
     """
+
+    ### Initializations ###
     mst = get_mst(graph)
-    pruned_mst = prune(mst)
-    pruned_mst_cost = average_pairwise_distance(pruned_mst)
-    print("Pruned MST cost: {}".format(pruned_mst_cost), flush=True)
-
+    pruned_mst = prune(graph, mst)
+    last = find_last(graph, alpha = 2)
     domset = better_domset_approx(graph)
-    if len(domset.nodes()) == 1:
-        print("Found a dominating set of size 0!", flush=True)
-        return domset
+    domset_annealer = RandomMove(domset, graph)
+    last_annealer = RandomMove(last, graph)
+    solutions = [pruned_mst]
+    annealers = [domset_annealer, last_annealer]
 
-    domset_1 = RandomMove(domset, graph)
-    domset_annealers = [domset_1]
-    best_tree = pruned_mst
-    best_tree_weight = pruned_mst_cost
-    solution_trees = []
+    ### Annealing ###
+    for annealer in annealers:
+        annealer.steps = 50000
+        annealer.Tmax = 1000
+        annealer.Tmin = .0025
 
-    ### FOR ANNEALLING ###
-    # annealer = domset_annealers[0]
-    # print("performing landscaping of solution space", flush=True)
-    # auto_schedule = annealer.auto(minutes=2, steps=2000)
-    # print('\n')
-    # print("done landscaping, schedule set: {}".format(auto_schedule), flush=True)
-    # print('performing annealling on domset initial solutions', flush=True)
-    for annealer in domset_annealers:
-        for i in range(1):
-            # annealer.set_schedule(auto_schedule)
-            annealer.Tmax = 5000
-            annealer.Tmin = 0.0025
-            annealer.steps = 50000
-            tree, energy = annealer.anneal()
-            ### DEBUGGING ###
-            # print('\n')
-            # print("Resulting solution cost: {}".format(average_pairwise_distance(tree)), flush=True)
-            solution_trees.append(tree)
+        print("annealing...", flush=True)
+        print()
+        tree, energy = annealer.anneal()
+        tree = repeated_pruning(graph, tree)
 
-    for tree in solution_trees:
-        if average_pairwise_distance(tree) < best_tree_weight:
-            best_tree = tree
-            best_tree_weight = average_pairwise_distance(tree)
+        print("Iteration solution tree cost: {}".format(average_pairwise_distance_fast(tree)))
+        solutions.append(tree)
 
-    # print("Best tree cost: {}".format(average_pairwise_distance_fast(best_tree)))
-    pruned_mst_weight = pruned_mst_cost
-    print("Pruned MST Cost: {}, Best tree cost: {}".format(pruned_mst_weight, best_tree_weight))
-    # print("Tree nodes: {}".format(best_tree.nodes()))
-    # print("Tree edges: {}".format(best_tree.edges()))
-    print("============")
-    print()
-    return best_tree
+    ### Comparing solution costs against each other ###
+    best_solution, best_solution_cost = pruned_mst, average_pairwise_distance_fast(pruned_mst)
+    print("Intial solution cost: {}".format(best_solution_cost), flush=True)
+    for solution in solutions:
+        solution_cost = average_pairwise_distance_fast(solution)
+        if solution_cost < best_solution_cost:
+            best_solution, best_solution_cost = solution, solution_cost
 
-steps_dict = {
+    print("Final solution cost: {}".format(best_solution_cost), flush=True)
+    return best_solution
 
-    'large': 5000,
-    'medium' : 10000,
-    'small' : 20000
-}
+
+
 
 # Usage: python3 solver.py /inputs
 if __name__ == '__main__':
@@ -80,18 +65,27 @@ if __name__ == '__main__':
     print("solving large inputs", flush=True)
     inputs_path = current_folder + input_path
     for input in os.listdir(inputs_path):
+        print()
+        print("============")
         G = read_input_file(inputs_path + '/' + input)
         print("solving: {}".format(input))
         T = solve(G)
         assert is_valid_network(G, T)
-        # print("Final pairwise distance: {}".format(average_pairwise_distance(T)))
+
+        # Getting output file
         output_folder = "C:\\Users\\jimmy\\desktop\\proj\\outputs\\"
         output_file = input.replace(".in", ".out")
         output_string = output_folder + output_file
-
         print("Output path: {}".format(output_string))
+
+        current_output = read_input_file(output_folder + output_file)
+        current_output_cost = average_pairwise_distance_fast(current_output)
+
+        print("Current outpust cost: {}".format(current_output_cost))
+
+        if average_pairwise_distance_fast(T) < current_output_cost:
+            print("Solution cost better than output cost. Rewriting...")
+            write_output_file(T, output_string)
         print("============")
         print()
-
-        write_output_file(T, output_string)
         os.remove(inputs_path + '/' + input)

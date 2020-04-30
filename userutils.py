@@ -1,4 +1,4 @@
-from utils import is_valid_network, average_pairwise_distance
+from utils import is_valid_network, average_pairwise_distance, average_pairwise_distance_fast
 import networkx as nx
 import sys, os, random
 from copy import deepcopy
@@ -6,13 +6,6 @@ from simanneal import Annealer
 from networkx.algorithms.approximation import dominating_set
 import random as rand
 
-def test_function(graph):
-    pass
-    # Perform a test on whatever you want to run right now
-
-
-
-# Annealer that uses MST at first.
 class RandomMove(Annealer):
     def __init__(self, state, graph):
         self.state = state
@@ -21,19 +14,49 @@ class RandomMove(Annealer):
         super(RandomMove, self).__init__(state)  # important!
 
     def move(self):
-        disconnecting_edge = choose_random_edge(self.state.edges())
-        u, v = disconnecting_edge[0], disconnecting_edge[1]
-        self.state.remove_edge(u, v)
-        u_cc = nx.node_connected_component(self.state, u)
-        v_cc = nx.node_connected_component(self.state, v)
-        connecting_edges = find_connecting_edges(self.graph, u_cc, v_cc)
-        random_connecting_edge = choose_random_edge(connecting_edges)
-        u, v = random_connecting_edge[0], random_connecting_edge[1]
-        rce_edge_weight = get_edge_weight(self.graph, u, v)
-        self.state.add_edge(u, v, weight=rce_edge_weight)
+        if average_pairwise_distance_fast(self.state) == 0:
+            return
+        else:
+            disconnecting_edge = choose_random_edge(self.state.edges())
+            u, v = disconnecting_edge[0], disconnecting_edge[1]
+            self.state.remove_edge(u, v)
+            u_cc = nx.node_connected_component(self.state, u)
+            v_cc = nx.node_connected_component(self.state, v)
+            connecting_edges = find_connecting_edges(self.graph, u_cc, v_cc)
+            random_connecting_edge = choose_random_edge(connecting_edges)
+            u, v = random_connecting_edge[0], random_connecting_edge[1]
+            rce_edge_weight = get_edge_weight(self.graph, u, v)
+            self.state.add_edge(u, v, weight=rce_edge_weight)
 
     def energy(self):
-        return average_pairwise_distance(self.state)
+        return average_pairwise_distance_fast(self.state)
+
+# Bake in repeated pruning when adding new vertices - doesn't seem to improve much from pruning at the end
+class RandomMovePruning(Annealer):
+    def __init__(self, state, graph):
+        self.state = state
+        self.graph = graph
+        self.iter = 0
+        super(RandomMovePruning, self).__init__(state)  # important!
+
+    def move(self):
+        if average_pairwise_distance_fast(self.state) == 0:
+            return
+        else:
+            self.state = prune(self.graph, self.state)
+            disconnecting_edge = choose_random_edge(self.state.edges())
+            u, v = disconnecting_edge[0], disconnecting_edge[1]
+            self.state.remove_edge(u, v)
+            u_cc = nx.node_connected_component(self.state, u)
+            v_cc = nx.node_connected_component(self.state, v)
+            connecting_edges = find_connecting_edges(self.graph, u_cc, v_cc)
+            random_connecting_edge = choose_random_edge(connecting_edges)
+            u, v = random_connecting_edge[0], random_connecting_edge[1]
+            rce_edge_weight = get_edge_weight(self.graph, u, v)
+            self.state.add_edge(u, v, weight=rce_edge_weight)
+
+    def energy(self):
+        return average_pairwise_distance_fast(self.state)
 
 class RandomDCMinAdd(Annealer):
     def __init__(self, state, graph):
@@ -54,7 +77,7 @@ class RandomDCMinAdd(Annealer):
         self.state.add_edge(u, v, weight=weight)
 
     def energy(self):
-        return average_pairwise_distance(self.state)
+        return average_pairwise_distance_fast(self.state)
 
 class MaxDCMinAdd(Annealer):
     def __init__(self, state, graph):
@@ -73,12 +96,12 @@ class MaxDCMinAdd(Annealer):
         u_cc = nx.node_connected_component(self.state, u)
         v_cc = nx.node_connected_component(self.state, v)
         min_edge, weight = minimum_edge_across_cut(self.graph, u_cc, v_cc)
-        
+
         u, v = min_edge[0], min_edge[1]
         self.state.add_edge(u, v, weight=weight)
 
     def energy(self):
-        return average_pairwise_distance(self.state)
+        return average_pairwise_distance_fast(self.state)
 
 # Section: Helper Functions
 
@@ -312,30 +335,34 @@ def find_leaves(G):
             leaves.append(node)
     return leaves
 
-# Prune the leaves of our tree according to some cost function.
-def prune(tree):
-    leaves = find_leaves(tree)
-    if len(leaves) == 1:
-        return tree
-    original_cost = average_pairwise_distance(tree)
+# Keep pruning edges until the cost stays the same - meaning we can't prune anything
+def repeated_pruning(graph, tree):
+    best_tree, cost = tree, average_pairwise_distance_fast(tree)
+    while True:
+        # Prune the graph with the current best and check the cost - the subroutine checks if valid
+        new_tree = prune(graph, best_tree)
+        new_cost = average_pairwise_distance_fast(new_tree)
+        # If the cost stays the same, we've pruned as much as possible
+        if new_cost == cost: break
+        # Otherwise, redefine the best tree and restart
+        else: best_tree, cost = new_tree, new_cost
+    return best_tree
+
+# Prune the leaves of our tree so long as it retains validity
+def prune(graph, tree):
+    # Init
+    best_tree, cost, leaves = tree, average_pairwise_distance_fast(tree), find_leaves(tree)
+    # For every leaf, try to remove it - if it makes the cost better, keep the change.
     for node in leaves:
-        edges = list(get_edges(tree, node))
-        if len(tree.nodes()) == 1:
-            return tree
-        if len(edges) == 1:
-            edge = edges[0]
-            copy_tree = deepcopy(tree)
-            u, v = edge[0], edge[1]
-            copy_tree.remove_node(node)
-            new_cost = average_pairwise_distance(copy_tree)
-            if new_cost < original_cost:
-                tree.remove_node(node)
-                original_cost = new_cost
-        else:
-            pass
+        temp = deepcopy(best_tree)
+        temp.remove_node(node)
+        if nx.is_dominating_set(graph, temp):
+            if average_pairwise_distance_fast(temp) < cost:
+                best_tree, cost = temp, average_pairwise_distance_fast(temp)
+    return best_tree
 
-    return tree
-
+# Implementation taken from networkx - wanted to modify it but couldn't figure it out; returns a tree
+# Potential optimization: instead of the cost they have, actually use the cost function
 def our_min_domset(G, weight=None):
     if len(G) == 0:
         return set()
@@ -344,15 +371,94 @@ def our_min_domset(G, weight=None):
     def _cost(node_and_neighborhood):
         v, neighborhood = node_and_neighborhood
         return G.nodes[v].get(weight, 1) / len(neighborhood - dom_set)
-
     vertices = set(G)
     neighborhoods = {v: {v} | set(G[v]) for v in G}
-
     while vertices:
         dom_node, min_set = min(neighborhoods.items(), key=_cost)
         dom_set.add(dom_node)
         dom_tree.add_node(dom_node)
         del neighborhoods[dom_node]
         vertices -= min_set
-
     return dom_set
+
+# Gets the shortest path tree of a graph
+def get_spt(graph):
+    root = 1
+    paths = nx.algorithms.shortest_paths.weighted.single_source_dijkstra_path(graph, root, weight='weight')
+    tree = nx.Graph()
+    parent = [None] * (len(graph.nodes()) + 1)
+    for end in paths.keys():
+        path = paths[end]
+        current = root
+        for node in path:
+            if node == current:
+                parent[node] = root
+            else:
+                tree.add_edge(current, node, weight=get_edge_weight(graph, current, node))
+                parent[node] = current
+                current = node
+    return paths, parent
+
+### SECTION: Research paper utilities, defined in research.py ###
+# Find LAST - as mentioned in research.py according to research paper
+def find_last(graph, alpha):
+    assert alpha > 1
+
+    root = 1
+    mst, parent_mst = get_mst(graph), get_mst_parents(get_mst(graph))
+    spt, parent_spt = get_spt(graph)
+
+    def initialize():
+        parent, dist = [None] * (len(graph.nodes()) + 1), [float('infinity')] * (len(graph.nodes()) + 1)
+        dist[root] = 0
+        return parent, dist
+
+    def relax(u, v):
+        if dist[v] > dist[u] + get_edge_weight(graph, u, v):
+            dist[v] = dist[u] + get_edge_weight(graph,u ,v)
+            parent[v] = u
+
+    def dfs(u):
+        if dist[u] > alpha * get_distance(graph, root, u):
+            add_path(u)
+        for child in get_children(parent_mst, u):
+            relax(u, child)
+            dfs(child)
+            relax(child, u)
+
+    def add_path(v):
+        if dist[v] > get_distance(graph, root, v):
+            add_path(parent_spt[v])
+            relax(parent_spt[v], v)
+
+    parent, dist = initialize()
+    dfs(root)
+
+    tree = nx.Graph()
+    for node in graph.nodes():
+        if node != root:
+            tree.add_node(node)
+            tree.add_node(parent[node])
+            edge_weight = get_edge_weight(graph, parent[node], node)
+            tree.add_edge(node, parent[node], weight=edge_weight)
+    return tree
+
+# Gets the parent array of an MST
+def get_mst_parents(mst):
+    root = 1
+    # Can use SPT algorithm as subroutine - the MST should only have one path from start to end
+    spt, parent = get_spt(mst)
+    return parent
+
+# Gets the child of a vertex in a tree given a parent array
+def get_children(parents, u):
+    children = []
+    root = 1
+    for node in range(len(parents)):
+        if parents[node] == u and node != root:
+            children.append(node)
+    return children
+
+# Gets the shortest path distance between two nodes inside a tree.
+def get_distance(graph, u, v):
+    return nx.algorithms.shortest_paths.generic.shortest_path_length(graph, u, v, weight='weight')

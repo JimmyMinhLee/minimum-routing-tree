@@ -1,4 +1,6 @@
 from userutils import *
+from research import *
+
 def create_G():
     G = nx.Graph()
     G.add_edge(1, 2, weight = 5)
@@ -78,8 +80,41 @@ def test_domset_approx():
     g = create_G()
     print(domset_approx(g))
 
-def test_better_domset():
-    pass
+def test_last():
+    g = create_G()
+    print(find_last(g, alpha = 2))
+
+def test_distance():
+    g = create_G()
+    print(get_distance(g, 1, 6))
+
+def test_spt():
+    g = create_G()
+    print(get_spt(g))
+
+def test_mst_parents():
+    g = create_G()
+    print(get_mst_parents(get_mst(g)))
+
+def test_get_children():
+    g = create_G()
+    mst_parents = get_mst_parents(get_mst(g))
+    print(get_children(mst_parents, 1))
+    print(get_children(mst_parents, 2))
+    print(get_children(mst_parents, 3))
+
+def test_prune():
+    g = create_G()
+    mst_g = get_mst(g)
+    tree = prune(g, mst_g)
+    print(average_pairwise_distance_fast(tree))
+
+def test_repeated_prune():
+    g = create_G()
+    mst_g = get_mst(g)
+    tree = repeated_pruning(g, mst_g)
+    print(average_pairwise_distance_fast(tree))
+
 # create_G()
 # test_get_rand_node()
 # test_get_edges()
@@ -94,3 +129,15 @@ def test_better_domset():
 # test_construct_domsetSPT()
 # test_domset_approx()
 # test_better_domset()
+
+
+# test_last()
+# test_spt()
+# test_distance()
+# test_mst_parents()
+# test_get_children()
+
+test_prune()
+
+# Can only perform one iteration 
+test_repeated_prune()
