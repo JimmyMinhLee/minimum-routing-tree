@@ -31,6 +31,25 @@ class RandomMove(Annealer):
     def energy(self):
         return average_pairwise_distance_fast(self.state)
 
+class RandomAdd(Annealer):
+    def __init__(self, state, graph):
+        self.state = state
+        self.graph = graph
+        self.iter = 0
+        super(RandomAdd, self).__init__(state)  # important!
+
+    def move(self):
+        if average_pairwise_distance_fast(self.state) == 0:
+            return
+        else:
+            random_connecting_edge = choose_random_edge(self.graph.edges())
+            u, v = random_connecting_edge[0], random_connecting_edge[1]
+            rce_edge_weight = get_edge_weight(self.graph, u, v)
+            self.state.add_edge(u, v, weight=rce_edge_weight)
+
+    def energy(self):
+        return average_pairwise_distance_fast(self.state)
+
 # Bake in repeated pruning when adding new vertices - doesn't seem to improve much from pruning at the end
 class RandomMovePruning(Annealer):
     def __init__(self, state, graph):
@@ -442,6 +461,10 @@ def find_last(graph, alpha):
             edge_weight = get_edge_weight(graph, parent[node], node)
             tree.add_edge(node, parent[node], weight=edge_weight)
     return tree
+
+# As defined in research.py
+def remove_bad(G):
+    pass
 
 # Gets the parent array of an MST
 def get_mst_parents(mst):

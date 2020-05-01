@@ -1,5 +1,5 @@
 import networkx as nx
-from parse import read_input_file, write_output_file
+from parse import read_input_file, write_output_file, read_output_file
 from utils import is_valid_network, average_pairwise_distance, average_pairwise_distance_fast
 from userutils import *
 import time
@@ -18,18 +18,23 @@ def solve(graph):
     """
 
     ### Initializations ###
+    if len(graph.nodes()) == 1:
+        return graph
+
     mst = get_mst(graph)
     pruned_mst = prune(graph, mst)
     last = find_last(graph, alpha = 2)
+    last_annealer = RandomMove(graph, last)
+
     domset = better_domset_approx(graph)
     domset_annealer = RandomMove(domset, graph)
-    last_annealer = RandomMove(last, graph)
+
     solutions = [pruned_mst]
     annealers = [domset_annealer, last_annealer]
 
     ### Annealing ###
     for annealer in annealers:
-        annealer.steps = 50000
+        annealer.steps = 25000
         annealer.Tmax = 1000
         annealer.Tmin = .0025
 
@@ -39,17 +44,24 @@ def solve(graph):
         tree = repeated_pruning(graph, tree)
 
         print("Iteration solution tree cost: {}".format(average_pairwise_distance_fast(tree)))
+        print()
+
+        if average_pairwise_distance_fast(tree) == 0:
+            print("Found dominating set of size 0, breaking from solution.")
+            print()
+            return tree
         solutions.append(tree)
 
     ### Comparing solution costs against each other ###
-    best_solution, best_solution_cost = pruned_mst, average_pairwise_distance_fast(pruned_mst)
+    best_solution, best_solution_cost = last, average_pairwise_distance_fast(last)
     print("Intial solution cost: {}".format(best_solution_cost), flush=True)
+    print()
     for solution in solutions:
         solution_cost = average_pairwise_distance_fast(solution)
         if solution_cost < best_solution_cost:
             best_solution, best_solution_cost = solution, solution_cost
-
     print("Final solution cost: {}".format(best_solution_cost), flush=True)
+    print()
     return best_solution
 
 
@@ -62,13 +74,16 @@ if __name__ == '__main__':
     assert len(sys.argv) == 2
     input_path = sys.argv[1]
     current_folder = sys.path[0]
-    print("solving large inputs", flush=True)
+    # print("solving large inputs", flush=True)
     inputs_path = current_folder + input_path
     for input in os.listdir(inputs_path):
+
         print()
         print("============")
         G = read_input_file(inputs_path + '/' + input)
         print("solving: {}".format(input))
+        print()
+
         T = solve(G)
         assert is_valid_network(G, T)
 
@@ -78,14 +93,18 @@ if __name__ == '__main__':
         output_string = output_folder + output_file
         print("Output path: {}".format(output_string))
 
-        current_output = read_input_file(output_folder + output_file)
-        current_output_cost = average_pairwise_distance_fast(current_output)
+        current_output = read_output_file(output_string, G)
+        cost_current_output = average_pairwise_distance_fast(current_output)
+        tree_cost = average_pairwise_distance_fast(T)
 
-        print("Current outpust cost: {}".format(current_output_cost))
-
-        if average_pairwise_distance_fast(T) < current_output_cost:
-            print("Solution cost better than output cost. Rewriting...")
+        if tree_cost < cost_current_output:
+            print("Tree cost: {}, Current output cost: {}".format(tree_cost, cost_current_output), flush=True)
+            print("Cost of solution better than pre-existing solution; overwriting...", flush=True)
+            assert is_valid_network(G, T)
             write_output_file(T, output_string)
+
         print("============")
         print()
+
+        # write_output_file(T, output_string)
         os.remove(inputs_path + '/' + input)
