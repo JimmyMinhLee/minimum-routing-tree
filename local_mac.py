@@ -23,7 +23,7 @@ domset.steps=10000
 domset.Tmax = 550
 domset.Tmin = .0025
 
-last.steps=10000
+last.steps=50000
 last.Tmax = 550
 last.Tmin = .0025
 
