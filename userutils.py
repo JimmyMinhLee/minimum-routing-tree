@@ -31,6 +31,25 @@ class RandomMove(Annealer):
     def energy(self):
         return average_pairwise_distance_fast(self.state)
 
+class RandomAdd(Annealer):
+    def __init__(self, state, graph):
+        self.state = state
+        self.graph = graph
+        self.iter = 0
+        super(RandomAdd, self).__init__(state)  # important!
+
+    def move(self):
+        if average_pairwise_distance_fast(self.state) == 0:
+            return
+        else:
+            random_connecting_edge = choose_random_edge(self.graph.edges())
+            u, v = random_connecting_edge[0], random_connecting_edge[1]
+            rce_edge_weight = get_edge_weight(self.graph, u, v)
+            self.state.add_edge(u, v, weight=rce_edge_weight)
+
+    def energy(self):
+        return average_pairwise_distance_fast(self.state)
+
 # Bake in repeated pruning when adding new vertices - doesn't seem to improve much from pruning at the end
 class RandomMovePruning(Annealer):
     def __init__(self, state, graph):
@@ -104,6 +123,15 @@ class MaxDCMinAdd(Annealer):
         return average_pairwise_distance_fast(self.state)
 
 # Section: Helper Functions
+def steiner_tree(graph):
+    nodes = list(graph.nodes())
+    number_nodes = len(nodes)
+    terminal_nodes = rand.sample(nodes, (number_nodes * 1) // 9)
+    steiner_tree = nx.algorithms.approximation.steinertree.steiner_tree(graph, terminal_nodes, weight='weight')
+    return steiner_tree
+# Taking inspiration from implementation of steiner tree using metric closure
+def find_LAST_metric_closure(graph):
+    pass
 
 # Do a better job with constructing a tree on the domset
 def better_domset_approx(graph):
@@ -136,17 +164,33 @@ def better_domset_approx(graph):
     return t
 
 # Construct domset approximation
-def domset_approx(graph):
-    dom_set = nx.algorithms.approximation.min_weighted_dominating_set(graph, weight='weight')
+def better_domset_edge_approx(graph):
+    dom_set = nx.algorithms.approximation.min_edge_dominating_set(graph)
     copy_graph = deepcopy(graph)
+    # connected_components = list(nx.algorithms.connected_components(graph))
+    t = nx.Graph()
+    dom_list = list(dom_set)
+    if len(dom_set) == 1:
+        t.add_node(list(dom_set)[0])
+        return t
+
+    root_node = dom_list.pop()
+    for next_root_node in dom_list:
+        path = nx.dijkstra_path(graph, root_node, next_root_node)
+        current_node = root_node
+        for node in path[1:]:
+            weight = get_edge_weight(graph, current_node, node)
+            t.add_edge(current_node, node, weight=weight)
+            current_node = node
+        root_node = next_root_node
+
     while nx.is_tree(copy_graph) != True:
         try:
-            cycle = list(nx.find_cycle(copy_graph))
-            remove_cycles(copy_graph, dom_set, cycle)
+            cycle = list(nx.find_cycle(t))
+            remove_cycles(t, dom_set, cycle)
         except:
             break
-    # print(list(nx.algorithms.connected_components(copy_graph)))
-    return copy_graph
+    return t
 
 # Remove cycles according to "A Note on Dominating Sets and Average Distance"
 def remove_cycles(graph, dominating_set, cycle):
@@ -399,6 +443,24 @@ def get_spt(graph):
                 current = node
     return paths, parent
 
+# Gets the shortest path tree of a graph
+def get_spt_tree(graph):
+    root = 1
+    paths = nx.algorithms.shortest_paths.weighted.single_source_dijkstra_path(graph, root, weight='weight')
+    tree = nx.Graph()
+    parent = [None] * (len(graph.nodes()) + 1)
+    for end in paths.keys():
+        path = paths[end]
+        current = root
+        for node in path:
+            if node == current:
+                parent[node] = root
+            else:
+                tree.add_edge(current, node, weight=get_edge_weight(graph, current, node))
+                parent[node] = current
+                current = node
+    return tree
+
 ### SECTION: Research paper utilities, defined in research.py ###
 # Find LAST - as mentioned in research.py according to research paper
 def find_last(graph, alpha):
@@ -442,6 +504,10 @@ def find_last(graph, alpha):
             edge_weight = get_edge_weight(graph, parent[node], node)
             tree.add_edge(node, parent[node], weight=edge_weight)
     return tree
+
+# As defined in research.py
+def remove_bad(G):
+    pass
 
 # Gets the parent array of an MST
 def get_mst_parents(mst):

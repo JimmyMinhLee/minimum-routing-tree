@@ -101,7 +101,6 @@ def read_output_file(path, G):
         assert utils.is_valid_network(G, T)
         return T
 
-
 def write_output_file(T, path):
     with open(path, "w") as fo:
         fo.write(" ".join(map(str, T.nodes)) + "\n")
