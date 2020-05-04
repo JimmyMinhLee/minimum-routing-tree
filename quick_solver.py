@@ -14,25 +14,25 @@ def solve(graph):
     Returns:
         T: networkx.Graph
 
-    Run a single proposed algorithm and compare costs to the current output
-    Idea behind this is that we want to quickly check if an approach is doing better than the other ones in the outputs already
+    We're going to run the graph on a few inputs and compare them.
     """
 
     ### Initializations ###
+
     if len(graph.nodes()) == 1:
         return graph
 
-    last = find_last(graph, alpha=100)
-    last_annealer = RandomMove(last, graph)
-    last_annealer.steps = 10000
-    tree, energy = last_annealer.anneal()
-    print()
-    print("Tree cost: {}".format(average_pairwise_distance_fast(tree)), flush=True)
-    tree = repeated_pruning(graph, tree)
-    print("New cost: {}".format(average_pairwise_distance_fast(tree)), flush=True)
-    print()
-    return tree
+    domset = better_domset_approx(graph)
+    domset_cost = average_pairwise_distance_fast(domset)
 
+    if domset_cost == 0:
+        print("Found domset of size 0, returning", flush=True)
+        return domset
+
+    last = find_last(graph, alpha = float('infinity'))
+    last = repeated_pruning(graph, last)
+    print("LAST tree found of cost: {}".format(average_pairwise_distance_fast(last)), flush=True)
+    return last
 
 
 
@@ -43,21 +43,18 @@ if __name__ == '__main__':
     assert len(sys.argv) == 2
     input_path = sys.argv[1]
     current_folder = sys.path[0]
-    print("solving large inputs", flush=True)
+    # print("solving large inputs", flush=True)
     inputs_path = current_folder + input_path
-
     for input in os.listdir(inputs_path):
-        print(input, flush=True)
 
         print()
-        print("============", flush=True)
+        print("============")
         G = read_input_file(inputs_path + '/' + input)
-        print("solving: {}".format(input), flush=True)
+        print("solving: {}".format(input))
         print()
 
         T = solve(G)
-        tree_cost = average_pairwise_distance_fast(T)
-
+        assert is_valid_network(G, T)
 
         # Getting output file
         output_folder = "C:\\Users\\jimmy\\desktop\\proj\\outputs\\"
@@ -67,6 +64,7 @@ if __name__ == '__main__':
 
         current_output = read_output_file(output_string, G)
         cost_current_output = average_pairwise_distance_fast(current_output)
+        tree_cost = average_pairwise_distance_fast(T)
 
         if tree_cost < cost_current_output:
             print("Tree cost: {}, Current output cost: {}".format(tree_cost, cost_current_output), flush=True)
@@ -74,6 +72,8 @@ if __name__ == '__main__':
             assert is_valid_network(G, T)
             write_output_file(T, output_string)
 
-        print("============", flush=True)
+        print("============")
         print()
-        os.remove(inputs_path + '/' + input)
+
+        # write_output_file(T, output_string)
+        # os.remove(inputs_path + '/' + input)

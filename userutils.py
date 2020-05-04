@@ -126,9 +126,10 @@ class MaxDCMinAdd(Annealer):
 def steiner_tree(graph):
     nodes = list(graph.nodes())
     number_nodes = len(nodes)
-    terminal_nodes = rand.sample(nodes, (number_nodes * 1) // 9)
+    terminal_nodes = rand.sample(nodes, (number_nodes * 1) // 1)
     steiner_tree = nx.algorithms.approximation.steinertree.steiner_tree(graph, terminal_nodes, weight='weight')
     return steiner_tree
+
 # Taking inspiration from implementation of steiner tree using metric closure
 def find_LAST_metric_closure(graph):
     pass
